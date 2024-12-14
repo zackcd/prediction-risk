@@ -12,3 +12,14 @@ func NewContractPrice(value int) ContractPrice {
 
 	return ContractPrice(value)
 }
+
+func (p ContractPrice) Value() int {
+	return p.Value()
+}
+
+type Side string
+
+const (
+	SideYes Side = "YES"
+	SideNo  Side = "NO"
+)

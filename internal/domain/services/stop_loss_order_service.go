@@ -11,8 +11,8 @@ import (
 )
 
 type StopLossService struct {
-	repo         repositories.StopLossOrderRepo
-	kalshiClient domain.ExchangeClient
+	repo            repositories.StopLossOrderRepo
+	exchangeService *ExchangeService
 }
 
 func NewStopLossService(repo repositories.StopLossOrderRepo) *StopLossService {
@@ -35,12 +35,13 @@ func (s *StopLossService) GetOrder(
 
 func (s *StopLossService) CreateOrder(
 	ticker string,
+	side entities.Side,
 	threshold entities.ContractPrice,
 ) (
 	*entities.StopLossOrder,
 	error,
 ) {
-	order := entities.NewStopLossOrder(ticker, threshold)
+	order := entities.NewStopLossOrder(ticker, side, threshold)
 
 	if err := s.repo.Persist(order); err != nil {
 		return nil, err
@@ -121,10 +122,9 @@ func (s *StopLossService) GetActiveOrders() ([]*entities.StopLossOrder, error) {
 // ExecuteOrder executes the stop loss order
 // 1. Get the stop loss order
 // 2. Validate the order is active
-// 3. Validate the current price is below the threshold
-// 4. Retrieve the number of contracts held from the exchange
-// 5. Execute the sell order
-// 6. Update the stop loss order status to executed
+// 3. Retrieve the number of contracts held from the exchange
+// 4. Execute the sell order
+// 5. Update the stop loss order status to executed
 func (s *StopLossService) ExecuteOrder(
 	stopLossOrderId uuid.UUID,
 ) (
@@ -144,6 +144,24 @@ func (s *StopLossService) ExecuteOrder(
 		return nil, fmt.Errorf("order %s has invalid status %s", order.ID(), order.Status())
 	}
 
-	// Get the current price of the ticker
+	positionsResp, err := s.exchangeService.GetPositions()
+	if err != nil {
+		return nil, fmt.Errorf("getting positions: %w", err)
+	}
 
+	// Find the position for the stop loss order
+	for _, p := range positionsResp.MarketPositions {
+		if p.Ticker == order.Ticker() {
+			position = &p
+			break
+		}
+	}
+	if position == nil {
+		return nil, fmt.Errorf("no position found for ticker %s", order.Ticker())
+	}
+
+	// Execute the sell order
+	_, err = s.exchangeService.CreateSellOrder(order.Ticker(), order.Side(), order.ID().String(), position.Count)
+
+	return order, nil
 }
