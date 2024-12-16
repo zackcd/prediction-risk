@@ -73,9 +73,20 @@ type MarketResponse struct {
 	Market Market `json:"market"`
 }
 
+type GetPositionsOptions struct {
+	Ticker           *string
+	EventTicker      *string
+	SettlementStatus *string
+}
+
 // Primary response type
 type PositionsResponse struct {
 	Cursor          *string          `json:"cursor"`
+	EventPositions  []EventPosition  `json:"event_positions"`
+	MarketPositions []MarketPosition `json:"market_positions"`
+}
+
+type PositionsResult struct {
 	EventPositions  []EventPosition  `json:"event_positions"`
 	MarketPositions []MarketPosition `json:"market_positions"`
 }
@@ -92,7 +103,7 @@ type EventPosition struct {
 type MarketPosition struct {
 	FeesPaid           int       `json:"fees_paid"`
 	LastUpdatedTS      time.Time `json:"last_updated_ts"`
-	MarketExposure     int       `json:"market_exposure`
+	MarketExposure     int       `json:"market_exposure"`
 	Position           int       `json:"position"` // Number of contracts bought in this market. Negative means NO contracts and positive means YES contracts.
 	RealizedPNL        int       `json:"realized_pnl"`
 	RestingOrdersCount int       `json:"resting_orders_count"`
@@ -127,6 +138,16 @@ func (p *PositionsParams) WithLimit(limit int) *PositionsParams {
 
 func (p *PositionsParams) WithTicker(ticker string) *PositionsParams {
 	p.Ticker = &ticker
+	return p
+}
+
+func (p *PositionsParams) WithEventTicker(eventTicker string) *PositionsParams {
+	p.EventTicker = &eventTicker
+	return p
+}
+
+func (p *PositionsParams) WithSettlementStatus(settlementStatus string) *PositionsParams {
+	p.SettlementStatus = &settlementStatus
 	return p
 }
 

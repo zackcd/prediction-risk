@@ -9,19 +9,17 @@ import (
 
 type StopLossOrderMonitor struct {
 	stopLossService *StopLossService
-	kalshiClient    *kalshi.KalshiClient
+	kalshi          *kalshi.KalshiClient
 	interval        time.Duration
 	done            chan struct{}
 }
 
 func NewStopLossOrderMonitor(
 	StopLossService *StopLossService,
-	kalshiClient *kalshi.KalshiClient,
 	interval time.Duration,
 ) *StopLossOrderMonitor {
 	return &StopLossOrderMonitor{
 		stopLossService: StopLossService,
-		kalshiClient:    kalshiClient,
 		interval:        interval,
 		done:            make(chan struct{}),
 	}
@@ -56,9 +54,10 @@ func (m *StopLossOrderMonitor) checkOrders() error {
 	}
 
 	for _, order := range activeOrders {
-		market, err := m.kalshiClient.Market.GetMarket(order.Ticker())
+		// Get Market from KalshiClient
+		market, err := m.kalshi.Market.GetMarket(order.Ticker())
 		if err != nil {
-			fmt.Printf("Error getting market data for %s: %v", order.Ticker, err)
+			fmt.Printf("Error getting market data for %s: %v", order.Ticker(), err)
 			continue // Skip this order if we can't get the price, but keep checking others
 		}
 

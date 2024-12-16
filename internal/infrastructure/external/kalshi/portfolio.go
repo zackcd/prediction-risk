@@ -23,12 +23,57 @@ func (c *portfolioClient) CreateOrder(order *CreateOrderRequest) (*CreateOrderRe
 	return handleResponse[CreateOrderResponse](resp)
 }
 
-func (c *portfolioClient) GetPositions(params *PositionsParams) (*PositionsResponse, error) {
+func (c *portfolioClient) GetPositions(opts GetPositionsOptions) (*PositionsResult, error) {
+	result := &PositionsResult{
+		MarketPositions: make([]MarketPosition, 0),
+		EventPositions:  make([]EventPosition, 0),
+	}
+
+	params := NewPositionsParams().WithLimit(1000)
+	if opts.Ticker != nil {
+		params.WithTicker(*opts.Ticker)
+	}
+	if opts.EventTicker != nil {
+		params.WithEventTicker(*opts.EventTicker)
+	}
+	if opts.SettlementStatus != nil {
+		params.WithSettlementStatus(*opts.SettlementStatus)
+	}
+
+	if err := c.collectAllPositions(params, result); err != nil {
+		return nil, fmt.Errorf("collecting positions: %w", err)
+	}
+
+	return result, nil
+}
+
+// fetchPage is a clear name for a single API call
+func (c *portfolioClient) fetchPage(params *PositionsParams) (*PositionsResponse, error) {
 	resp, err := c.client.get(portfolioPath+"/positions", paramsToMap(params))
 	if err != nil {
-		return nil, fmt.Errorf("getting positions: %w", err)
+		return nil, fmt.Errorf("API request failed: %w", err)
 	}
 	return handleResponse[PositionsResponse](resp)
+}
+
+// collectAllPositions is clearer than "recursive" in the name
+func (c *portfolioClient) collectAllPositions(params *PositionsParams, result *PositionsResult) error {
+	for {
+		page, err := c.fetchPage(params)
+		if err != nil {
+			return fmt.Errorf("fetching page: %w", err)
+		}
+
+		result.MarketPositions = append(result.MarketPositions, page.MarketPositions...)
+		result.EventPositions = append(result.EventPositions, page.EventPositions...)
+
+		if page.Cursor == nil {
+			break
+		}
+		params = params.WithCursor(*page.Cursor)
+	}
+
+	return nil
 }
 
 // Helper to convert params struct to map for the client

@@ -6,13 +6,14 @@ import (
 	"prediction-risk/internal/domain"
 	"prediction-risk/internal/domain/entities"
 	"prediction-risk/internal/domain/repositories"
+	"prediction-risk/internal/infrastructure/external/kalshi"
 
 	"github.com/google/uuid"
 )
 
 type StopLossService struct {
-	repo            repositories.StopLossOrderRepo
-	exchangeService *ExchangeService
+	repo   repositories.StopLossOrderRepo
+	kalshi *kalshi.KalshiClient
 }
 
 func NewStopLossService(repo repositories.StopLossOrderRepo) *StopLossService {
@@ -144,11 +145,12 @@ func (s *StopLossService) ExecuteOrder(
 		return nil, fmt.Errorf("order %s has invalid status %s", order.ID(), order.Status())
 	}
 
-	positionsResp, err := s.exchangeService.GetPositions()
+	positionsResp, err := s.kalshi.Portfolio.GetPositions(kalshi.GetPositionsOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("getting positions: %w", err)
 	}
 
+	var position *kalshi.MarketPosition
 	// Find the position for the stop loss order
 	for _, p := range positionsResp.MarketPositions {
 		if p.Ticker == order.Ticker() {
@@ -160,8 +162,33 @@ func (s *StopLossService) ExecuteOrder(
 		return nil, fmt.Errorf("no position found for ticker %s", order.Ticker())
 	}
 
+	count := abs(position.Position)
 	// Execute the sell order
-	_, err = s.exchangeService.CreateSellOrder(order.Ticker(), order.Side(), order.ID().String(), position.Count)
+
+	var orderSide kalshi.OrderSide
+	if order.Side() == entities.SideYes {
+		orderSide = kalshi.OrderSideYes
+	} else {
+		orderSide = kalshi.OrderSideNo
+	}
+
+	sellRequest := &kalshi.CreateOrderRequest{
+		Ticker:        order.Ticker(),
+		ClientOrderID: order.ID().String(),
+		Side:          orderSide,
+		Action:        kalshi.OrderActionSell,
+		Count:         count,
+		Type:          "market",
+	}
+
+	_, err = s.kalshi.Portfolio.CreateOrder(sellRequest)
 
 	return order, nil
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }

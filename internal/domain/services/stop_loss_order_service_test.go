@@ -28,6 +28,11 @@ func (m *MockStopLossOrderRepo) Persist(order *entities.StopLossOrder) error {
 	return args.Error(0)
 }
 
+func (m *MockStopLossOrderRepo) GetAll() ([]*entities.StopLossOrder, error) {
+	args := m.Called()
+	return args.Get(0).([]*entities.StopLossOrder), args.Error(1)
+}
+
 // Test suite
 func TestStopLossService(t *testing.T) {
 	t.Run("GetOrder", func(t *testing.T) {
@@ -37,7 +42,7 @@ func TestStopLossService(t *testing.T) {
 			service := NewStopLossService(mockRepo)
 
 			orderID := uuid.New()
-			expectedOrder := entities.NewStopLossOrder("AAPL", entities.ContractPrice(100.0))
+			expectedOrder := entities.NewStopLossOrder("AAPL", entities.SideYes, entities.ContractPrice(100.0))
 
 			mockRepo.On("GetByID", orderID).Return(expectedOrder, nil)
 
@@ -79,7 +84,7 @@ func TestStopLossService(t *testing.T) {
 					order.Status() == entities.StatusActive
 			})).Return(nil)
 
-			order, err := service.CreateOrder(ticker, threshold)
+			order, err := service.CreateOrder(ticker, entities.SideYes, threshold)
 
 			assert.NoError(t, err)
 			assert.Equal(t, ticker, order.Ticker())
@@ -95,7 +100,7 @@ func TestStopLossService(t *testing.T) {
 			service := NewStopLossService(mockRepo)
 
 			orderID := uuid.New()
-			existingOrder := entities.NewStopLossOrder("AAPL", entities.ContractPrice(100.0))
+			existingOrder := entities.NewStopLossOrder("AAPL", entities.SideYes, entities.ContractPrice(100.0))
 			newThreshold := entities.ContractPrice(120.0)
 
 			mockRepo.On("GetByID", orderID).Return(existingOrder, nil)
@@ -117,7 +122,7 @@ func TestStopLossService(t *testing.T) {
 			service := NewStopLossService(mockRepo)
 
 			orderID := uuid.New()
-			existingOrder := entities.NewStopLossOrder("AAPL", entities.ContractPrice(100.0))
+			existingOrder := entities.NewStopLossOrder("AAPL", entities.SideYes, entities.ContractPrice(100.0))
 
 			mockRepo.On("GetByID", orderID).Return(existingOrder, nil)
 			mockRepo.On("Persist", mock.MatchedBy(func(order *entities.StopLossOrder) bool {
@@ -151,7 +156,7 @@ func TestStopLossService(t *testing.T) {
 			service := NewStopLossService(mockRepo)
 
 			orderID := uuid.New()
-			existingOrder := entities.NewStopLossOrder("AAPL", entities.ContractPrice(100.0))
+			existingOrder := entities.NewStopLossOrder("AAPL", entities.SideYes, entities.ContractPrice(100.0))
 			existingOrder.SetStatus(entities.StatusCanceled)
 
 			mockRepo.On("GetByID", orderID).Return(existingOrder, nil)
