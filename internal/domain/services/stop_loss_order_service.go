@@ -9,6 +9,7 @@ import (
 	"prediction-risk/internal/infrastructure/external/kalshi"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 type StopLossService struct {
@@ -150,15 +151,10 @@ func (s *StopLossService) ExecuteOrder(
 		return nil, fmt.Errorf("getting positions: %w", err)
 	}
 
-	var position *kalshi.MarketPosition
-	// Find the position for the stop loss order
-	for _, p := range positionsResp.MarketPositions {
-		if p.Ticker == order.Ticker() {
-			position = &p
-			break
-		}
-	}
-	if position == nil {
+	position, found := lo.Find(positionsResp.MarketPositions, func(mp kalshi.MarketPosition) bool {
+		return mp.Ticker == order.Ticker()
+	})
+	if !found {
 		return nil, fmt.Errorf("no position found for ticker %s", order.Ticker())
 	}
 
@@ -182,6 +178,13 @@ func (s *StopLossService) ExecuteOrder(
 	}
 
 	_, err = s.kalshi.Portfolio.CreateOrder(sellRequest)
+	if err != nil {
+		return nil, fmt.Errorf("creating sell order: %w", err)
+	}
+
+	// Update the stop loss order status to executed and persist
+	order.SetStatus(entities.StatusExecuted)
+	s.repo.Persist(order)
 
 	return order, nil
 }
