@@ -3,27 +3,41 @@ package services
 import (
 	"fmt"
 	"log"
-	entity "prediction-risk/internal/domain/entities"
-	interfaces "prediction-risk/internal/domain/ports"
+	"prediction-risk/internal/domain/entities"
 	"prediction-risk/internal/infrastructure/external/kalshi"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 )
 
-type StopLossService struct {
-	repo   interfaces.StopLossOrderRepo
+type StopLossOrderRepo interface {
+	GetByID(id uuid.UUID) (*entities.StopLossOrder, error)
+	GetAll() ([]*entities.StopLossOrder, error)
+	Persist(stopLossOrder *entities.StopLossOrder) error
+}
+
+type StopLossService interface {
+	GetOrder(stopLossOrderId uuid.UUID) (*entities.StopLossOrder, error)
+	CreateOrder(ticker string, side entities.Side, threshold entities.ContractPrice) (*entities.StopLossOrder, error)
+	UpdateOrder(stopLossOrderId uuid.UUID, threshold entities.ContractPrice) (*entities.StopLossOrder, error)
+	CancelOrder(stopLossOrderId uuid.UUID) (*entities.StopLossOrder, error)
+	GetActiveOrders() ([]*entities.StopLossOrder, error)
+	ExecuteOrder(stopLossOrderId uuid.UUID) (*entities.StopLossOrder, error)
+}
+
+type stopLossService struct {
+	repo   StopLossOrderRepo
 	kalshi *kalshi.KalshiClient
 }
 
-func NewStopLossService(repo interfaces.StopLossOrderRepo) *StopLossService {
-	return &StopLossService{repo: repo}
+func NewStopLossService(repo StopLossOrderRepo) *stopLossService {
+	return &stopLossService{repo: repo}
 }
 
-func (s *StopLossService) GetOrder(
+func (s *stopLossService) GetOrder(
 	stopLossOrderId uuid.UUID,
 ) (
-	*entity.StopLossOrder,
+	*entities.StopLossOrder,
 	error,
 ) {
 	order, err := s.repo.GetByID(stopLossOrderId)
@@ -34,15 +48,15 @@ func (s *StopLossService) GetOrder(
 	return order, nil
 }
 
-func (s *StopLossService) CreateOrder(
+func (s *stopLossService) CreateOrder(
 	ticker string,
-	side entity.Side,
-	threshold entity.ContractPrice,
+	side entities.Side,
+	threshold entities.ContractPrice,
 ) (
-	*entity.StopLossOrder,
+	*entities.StopLossOrder,
 	error,
 ) {
-	order := entity.NewStopLossOrder(ticker, side, threshold)
+	order := entities.NewStopLossOrder(ticker, side, threshold)
 
 	if err := s.repo.Persist(order); err != nil {
 		return nil, err
@@ -51,11 +65,11 @@ func (s *StopLossService) CreateOrder(
 	return order, nil
 }
 
-func (s *StopLossService) UpdateOrder(
+func (s *stopLossService) UpdateOrder(
 	stopLossOrderId uuid.UUID,
-	threshold entity.ContractPrice,
+	threshold entities.ContractPrice,
 ) (
-	*entity.StopLossOrder,
+	*entities.StopLossOrder,
 	error,
 ) {
 	order, err := s.repo.GetByID(stopLossOrderId)
@@ -74,10 +88,10 @@ func (s *StopLossService) UpdateOrder(
 	return order, nil
 }
 
-func (s *StopLossService) CancelOrder(
+func (s *stopLossService) CancelOrder(
 	stopLossOrderId uuid.UUID,
 ) (
-	*entity.StopLossOrder,
+	*entities.StopLossOrder,
 	error,
 ) {
 	// Get the existing stop loss order
@@ -86,15 +100,15 @@ func (s *StopLossService) CancelOrder(
 		return nil, err
 	}
 	if order == nil {
-		return nil, entity.NewErrNotFound("StopLossOrder", stopLossOrderId.String())
+		return nil, entities.NewErrNotFound("StopLossOrder", stopLossOrderId.String())
 	}
 
 	// Check if the order is already cancelled or executed
-	if order.Status() != entity.StatusActive {
+	if order.Status() != entities.StatusActive {
 		return nil, fmt.Errorf("order %s has invalid status %s", order.ID(), order.Status())
 	}
 
-	order.SetStatus(entity.StatusCanceled)
+	order.SetStatus(entities.StatusCanceled)
 
 	if err := s.repo.Persist(order); err != nil {
 		return nil, fmt.Errorf("persisting canceled order: %w", err)
@@ -104,15 +118,15 @@ func (s *StopLossService) CancelOrder(
 	return order, nil
 }
 
-func (s *StopLossService) GetActiveOrders() ([]*entity.StopLossOrder, error) {
+func (s *stopLossService) GetActiveOrders() ([]*entities.StopLossOrder, error) {
 	orders, err := s.repo.GetAll()
 	if err != nil {
 		return nil, err
 	}
 
-	activeOrders := make([]*entity.StopLossOrder, 0, len(orders))
+	activeOrders := make([]*entities.StopLossOrder, 0, len(orders))
 	for _, order := range orders {
-		if order.Status() == entity.StatusActive {
+		if order.Status() == entities.StatusActive {
 			activeOrders = append(activeOrders, order)
 		}
 	}
@@ -126,10 +140,10 @@ func (s *StopLossService) GetActiveOrders() ([]*entity.StopLossOrder, error) {
 // 3. Retrieve the number of contracts held from the exchange
 // 4. Execute the sell order
 // 5. Update the stop loss order status to executed
-func (s *StopLossService) ExecuteOrder(
+func (s *stopLossService) ExecuteOrder(
 	stopLossOrderId uuid.UUID,
 ) (
-	*entity.StopLossOrder,
+	*entities.StopLossOrder,
 	error,
 ) {
 	// Get the existing stop loss order
@@ -138,10 +152,10 @@ func (s *StopLossService) ExecuteOrder(
 		return nil, err
 	}
 	if order == nil {
-		return nil, entity.NewErrNotFound("StopLossOrder", stopLossOrderId.String())
+		return nil, entities.NewErrNotFound("StopLossOrder", stopLossOrderId.String())
 	}
 
-	if order.Status() != entity.StatusActive {
+	if order.Status() != entities.StatusActive {
 		return nil, fmt.Errorf("order %s has invalid status %s", order.ID(), order.Status())
 	}
 
@@ -161,7 +175,7 @@ func (s *StopLossService) ExecuteOrder(
 	// Execute the sell order
 
 	var orderSide kalshi.OrderSide
-	if order.Side() == entity.SideYes {
+	if order.Side() == entities.SideYes {
 		orderSide = kalshi.OrderSideYes
 	} else {
 		orderSide = kalshi.OrderSideNo
@@ -182,7 +196,7 @@ func (s *StopLossService) ExecuteOrder(
 	}
 
 	// Update the stop loss order status to executed and persist
-	order.SetStatus(entity.StatusExecuted)
+	order.SetStatus(entities.StatusExecuted)
 	s.repo.Persist(order)
 
 	return order, nil

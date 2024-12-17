@@ -8,14 +8,14 @@ import (
 )
 
 type StopLossMonitor struct {
-	stopLossService *StopLossService
+	stopLossService StopLossService
 	kalshi          *kalshi.KalshiClient
 	interval        time.Duration
 	done            chan struct{}
 }
 
 func NewStopLossMonitor(
-	StopLossService *StopLossService,
+	StopLossService StopLossService,
 	interval time.Duration,
 ) *StopLossMonitor {
 	return &StopLossMonitor{
