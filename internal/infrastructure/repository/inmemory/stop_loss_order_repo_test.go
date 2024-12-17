@@ -1,4 +1,4 @@
-package repositories
+package inmemory
 
 import (
 	"prediction-risk/internal/domain/entities"
@@ -17,7 +17,7 @@ func TestStopLossRepoInMemory(t *testing.T) {
 			threshold, err := entities.NewContractPrice(20)
 			require.NoError(t, err)
 			order := entities.NewStopLossOrder("FOO", entities.SideYes, threshold)
-			require.NoError(t, repo.Persist(*order), "Failed to persist order")
+			require.NoError(t, repo.Persist(order), "Failed to persist order")
 
 			// Act
 			foundOrder, err := repo.GetByID(order.ID())
@@ -53,7 +53,7 @@ func TestStopLossRepoInMemory(t *testing.T) {
 			order := entities.NewStopLossOrder("FOO", entities.SideYes, threshold)
 
 			// Act
-			err := repo.Persist(*order)
+			err := repo.Persist(order)
 
 			// Assert
 			require.NoError(t, err)
@@ -72,13 +72,13 @@ func TestStopLossRepoInMemory(t *testing.T) {
 			threshold, err := entities.NewContractPrice(20)
 			require.NoError(t, err)
 			order := entities.NewStopLossOrder("FOO", entities.SideYes, threshold)
-			require.NoError(t, repo.Persist(*order), "Failed to persist initial order")
+			require.NoError(t, repo.Persist(order), "Failed to persist initial order")
 
 			// Act
 			newThreshold, err := entities.NewContractPrice(30)
 			require.NoError(t, err)
 			order.SetThreshold(newThreshold)
-			persistErr := repo.Persist(*order)
+			persistErr := repo.Persist(order)
 
 			// Assert
 			require.NoError(t, persistErr)
@@ -96,14 +96,14 @@ func TestStopLossRepoInMemory(t *testing.T) {
 			threshold, err := entities.NewContractPrice(20)
 			require.NoError(t, err)
 			order := entities.NewStopLossOrder("FOO", entities.SideYes, threshold)
-			require.NoError(t, repo.Persist(*order), "Failed to persist initial order")
+			require.NoError(t, repo.Persist(order), "Failed to persist initial order")
 
 			// Act
 			originalTicker := order.Ticker()
 			newThreshold, err := entities.NewContractPrice(30)
 			require.NoError(t, err)
 			order.SetThreshold(newThreshold)
-			persistErr := repo.Persist(*order)
+			persistErr := repo.Persist(order)
 
 			// Assert
 			require.NoError(t, persistErr)

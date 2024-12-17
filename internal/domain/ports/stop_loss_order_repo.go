@@ -1,4 +1,4 @@
-package repositories
+package interfaces
 
 import (
 	"prediction-risk/internal/domain/entities"

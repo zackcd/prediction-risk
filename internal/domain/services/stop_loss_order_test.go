@@ -1,7 +1,6 @@
 package services
 
 import (
-	"prediction-risk/internal/domain"
 	"prediction-risk/internal/domain/entities"
 	"testing"
 
@@ -156,7 +155,7 @@ func TestStopLossService(t *testing.T) {
 
 			assert.Error(t, err)
 			assert.Nil(t, order)
-			assert.IsType(t, &domain.ErrNotFound{}, err)
+			assert.IsType(t, &entities.ErrNotFound{}, err)
 			mockRepo.AssertExpectations(t)
 		})
 

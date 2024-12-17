@@ -1,4 +1,4 @@
-package api
+package http
 
 type ValidationError struct {
 	Field   string `json:"field"`

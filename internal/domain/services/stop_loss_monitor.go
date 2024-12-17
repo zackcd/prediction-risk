@@ -7,25 +7,25 @@ import (
 	"time"
 )
 
-type StopLossOrderMonitor struct {
+type StopLossMonitor struct {
 	stopLossService *StopLossService
 	kalshi          *kalshi.KalshiClient
 	interval        time.Duration
 	done            chan struct{}
 }
 
-func NewStopLossOrderMonitor(
+func NewStopLossMonitor(
 	StopLossService *StopLossService,
 	interval time.Duration,
-) *StopLossOrderMonitor {
-	return &StopLossOrderMonitor{
+) *StopLossMonitor {
+	return &StopLossMonitor{
 		stopLossService: StopLossService,
 		interval:        interval,
 		done:            make(chan struct{}),
 	}
 }
 
-func (m *StopLossOrderMonitor) Start() {
+func (m *StopLossMonitor) Start() {
 	go func() {
 		ticker := time.NewTicker(m.interval)
 		defer ticker.Stop()
@@ -43,11 +43,11 @@ func (m *StopLossOrderMonitor) Start() {
 	}()
 }
 
-func (m *StopLossOrderMonitor) Stop() {
+func (m *StopLossMonitor) Stop() {
 	close(m.done)
 }
 
-func (m *StopLossOrderMonitor) checkOrders() error {
+func (m *StopLossMonitor) checkOrders() error {
 	activeOrders, err := m.stopLossService.GetActiveOrders()
 	if err != nil {
 		return fmt.Errorf("getting active orders: %w", err)
@@ -76,7 +76,7 @@ func (m *StopLossOrderMonitor) checkOrders() error {
 // Checks if the stop loss order should be executed
 // If the order side is YES: check if the yes price is below the threshold
 // If the order side is NO: check if the no price is below the threshold
-func (m *StopLossOrderMonitor) shouldExecute(
+func (m *StopLossMonitor) shouldExecute(
 	order *entities.StopLossOrder,
 	market *kalshi.MarketResponse,
 ) bool {

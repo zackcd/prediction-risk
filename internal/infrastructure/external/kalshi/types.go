@@ -4,48 +4,6 @@ import (
 	"time"
 )
 
-type MaintenanceWindow struct {
-	EndDatetime   time.Time `json:"end_datetime"`
-	StartDatetime time.Time `json:"start_datetime"`
-}
-
-type TradingHours struct {
-	OpenTime  string `json:"open_time"`
-	CloseTime string `json:"close_time"`
-}
-
-type StandardHours struct {
-	EndTime   time.Time      `json:"end_time"`
-	StartTime time.Time      `json:"start_time"`
-	Monday    []TradingHours `json:"monday"`
-	Tuesday   []TradingHours `json:"tuesday"`
-	Wednesday []TradingHours `json:"wednesday"`
-	Thursday  []TradingHours `json:"thursday"`
-	Friday    []TradingHours `json:"friday"`
-	Saturday  []TradingHours `json:"saturday"`
-	Sunday    []TradingHours `json:"sunday"`
-}
-
-type Schedule struct {
-	MaintenanceWindows []MaintenanceWindow `json:"maintenance_windows"`
-	StandardHours      []StandardHours     `json:"standard_hours"`
-}
-
-type ExchangeScheduleResponse struct {
-	Schedule Schedule `json:"schedule"`
-}
-
-type Announcement struct {
-	DeliveryTime time.Time `json:"delivery_time"`
-	Message      string    `json:"message"`
-	Status       string    `json:"status"`
-	Type         string    `json:"type"`
-}
-
-type ExchangeAnnouncementsResponse struct {
-	Announcements []Announcement `json:"announcements"`
-}
-
 type Market struct {
 	Ticker         string    `json:"ticker"`
 	Title          string    `json:"title"`
