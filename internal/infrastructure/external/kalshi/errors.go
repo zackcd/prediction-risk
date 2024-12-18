@@ -2,11 +2,6 @@ package kalshi
 
 import "fmt"
 
-type Error struct {
-	Message string
-	Status  int
-}
-
 type HTTPError struct {
 	Reason     string
 	StatusCode int

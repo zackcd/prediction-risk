@@ -25,7 +25,7 @@ type exchangeService struct {
 	portfolio PortfolioManager
 }
 
-func NewExchangeService(market MarketGetter, portfolio PortfolioManager) *exchangeService {
+func NewExchangeService(market MarketGetter, portfolio PortfolioManager) ExchangeService {
 	return &exchangeService{
 		market:    market,
 		portfolio: portfolio,
@@ -71,7 +71,7 @@ func (es *exchangeService) CreateSellOrder(
 	}
 	resp, err := es.portfolio.CreateOrder(request)
 	if err != nil {
-
+		return nil, err
 	}
 
 	return &entities.Order{

@@ -1,13 +1,15 @@
-package http
+package api
 
 import (
 	"encoding/json"
 	"net/http"
 	"prediction-risk/internal/domain/entities"
 	"prediction-risk/internal/domain/services"
+	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 type StopLossRoutes struct {
@@ -38,6 +40,29 @@ type UpdateStopLossRequest struct {
 	Threshold int `json:"threshold"`
 }
 
+type StopLossOrderResponse struct {
+	ID        string    `json:"id"`
+	Ticker    string    `json:"ticker"`
+	Side      string    `json:"side"`
+	Threshold int       `json:"threshold"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// In api/mappers.go
+func ToStopLossOrderResponse(order *entities.StopLossOrder) StopLossOrderResponse {
+	return StopLossOrderResponse{
+		ID:        order.ID().String(),
+		Ticker:    order.Ticker(),
+		Side:      order.Side().String(),
+		Threshold: order.Threshold().Value(),
+		Status:    string(order.Status()),
+		CreatedAt: order.CreatedAt(),
+		UpdatedAt: order.UpdatedAt(),
+	}
+}
+
 func (r *StopLossRoutes) CreateStopLoss(w http.ResponseWriter, req *http.Request) {
 	var request CreateStopLossRequest
 	if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
@@ -62,8 +87,9 @@ func (r *StopLossRoutes) CreateStopLoss(w http.ResponseWriter, req *http.Request
 		return
 	}
 
+	response := ToStopLossOrderResponse(order)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(order)
+	json.NewEncoder(w).Encode(response)
 }
 
 func (r *StopLossRoutes) ListStopLoss(w http.ResponseWriter, req *http.Request) {
@@ -73,8 +99,12 @@ func (r *StopLossRoutes) ListStopLoss(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
+	response := lo.Map(orders, func(order *entities.StopLossOrder, _ int) StopLossOrderResponse {
+		return ToStopLossOrderResponse(order)
+	})
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(orders)
+	json.NewEncoder(w).Encode(response)
 }
 
 func (r *StopLossRoutes) GetStopLoss(w http.ResponseWriter, req *http.Request) {
@@ -97,8 +127,9 @@ func (r *StopLossRoutes) GetStopLoss(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	response := ToStopLossOrderResponse(order)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(order)
+	json.NewEncoder(w).Encode(response)
 }
 
 func (r *StopLossRoutes) UpdateStopLoss(w http.ResponseWriter, req *http.Request) {
@@ -127,8 +158,9 @@ func (r *StopLossRoutes) UpdateStopLoss(w http.ResponseWriter, req *http.Request
 		return
 	}
 
+	response := ToStopLossOrderResponse(order)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(order)
+	json.NewEncoder(w).Encode(response)
 }
 
 func (r *StopLossRoutes) CancelStopLoss(w http.ResponseWriter, req *http.Request) {
@@ -146,6 +178,7 @@ func (r *StopLossRoutes) CancelStopLoss(w http.ResponseWriter, req *http.Request
 		return
 	}
 
+	response := ToStopLossOrderResponse(order)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(order)
+	json.NewEncoder(w).Encode(response)
 }

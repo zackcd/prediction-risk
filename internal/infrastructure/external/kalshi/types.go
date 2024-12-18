@@ -15,7 +15,7 @@ type Market struct {
 	ImageURL           *string `json:"image_url,omitempty"`
 	Category           string  `json:"category"`
 	SubCategory        string  `json:"sub_category"`
-	StrikePrice        *int    `json:"strike_price,omitempty"`
+	StrikePrice        *string `json:"strike_price,omitempty"`
 
 	// Status & Timing
 	Status         string    `json:"status"`
