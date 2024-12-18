@@ -9,7 +9,7 @@ import (
 
 type StopLossMonitor struct {
 	stopLossService StopLossService
-	kalshi          *kalshi.KalshiClient
+	exchange        ExchangeService
 	interval        time.Duration
 	done            chan struct{}
 }
@@ -55,7 +55,7 @@ func (m *StopLossMonitor) checkOrders() error {
 
 	for _, order := range activeOrders {
 		// Get Market from KalshiClient
-		market, err := m.kalshi.Market.GetMarket(order.Ticker())
+		market, err := m.exchange.GetMarket(order.Ticker())
 		if err != nil {
 			fmt.Printf("Error getting market data for %s: %v", order.Ticker(), err)
 			continue // Skip this order if we can't get the price, but keep checking others
@@ -78,15 +78,15 @@ func (m *StopLossMonitor) checkOrders() error {
 // If the order side is NO: check if the no price is below the threshold
 func (m *StopLossMonitor) shouldExecute(
 	order *entities.StopLossOrder,
-	market *kalshi.MarketResponse,
+	market *kalshi.Market,
 ) bool {
 	if order.Side() == entities.SideYes &&
-		market.Market.YesPrice < order.Threshold().Value() {
+		market.YesPrice < order.Threshold().Value() {
 		return true
 	}
 
 	if order.Side() == entities.SideNo &&
-		market.Market.NoPrice < order.Threshold().Value() {
+		market.NoPrice < order.Threshold().Value() {
 		return true
 	}
 

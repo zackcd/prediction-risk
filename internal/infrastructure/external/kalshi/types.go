@@ -5,26 +5,50 @@ import (
 )
 
 type Market struct {
-	Ticker         string    `json:"ticker"`
-	Title          string    `json:"title"`
+	// Market Information
+	Ticker             string  `json:"ticker"`
+	EventTicker        string  `json:"event_ticker"`
+	MultiMarketEventID string  `json:"multi_market_event_id"`
+	Title              string  `json:"title"`
+	Subtitle           string  `json:"subtitle"`
+	Description        string  `json:"description"`
+	ImageURL           *string `json:"image_url,omitempty"`
+	Category           string  `json:"category"`
+	SubCategory        string  `json:"sub_category"`
+	StrikePrice        *int    `json:"strike_price,omitempty"`
+
+	// Status & Timing
 	Status         string    `json:"status"`
 	OpenTime       time.Time `json:"open_time"`
 	CloseTime      time.Time `json:"close_time"`
 	ExpirationTime time.Time `json:"expiration_time"`
-	Category       string    `json:"category"`
-	SubCategory    string    `json:"sub_category"`
-	YesPrice       int       `json:"yes_price"`
-	NoPrice        int       `json:"no_price"`
-	YesAsk         int       `json:"yes_ask"`
-	NoAsk          int       `json:"no_ask"`
-	YesBid         int       `json:"yes_bid"`
-	NoBid          int       `json:"no_bid"`
-	LastPrice      int       `json:"last_price"`
-	PreviousPrice  int       `json:"previous_price"`
-	Volume         int       `json:"volume"`
-	Volume24H      int       `json:"volume_24h"`
-	OpenInterest   int       `json:"open_interest"`
-	Result         *string   `json:"result,omitempty"` // Nullable
+
+	// Settlement Information
+	Result            *string    `json:"result,omitempty"`
+	Settlement        string     `json:"settlement"`
+	SettlementNotes   *string    `json:"settlement_notes,omitempty"`
+	SettlementSources *string    `json:"settlement_sources,omitempty"`
+	SettlementTime    *time.Time `json:"settlement_time,omitempty"`
+	Rules             string     `json:"rules"`
+
+	// Market Data
+	MaxBinaryValue int `json:"max_binary_value"`
+	LastPrice      int `json:"last_price"`
+	PreviousPrice  int `json:"previous_price"`
+	YesPrice       int `json:"yes_price"`
+	NoPrice        int `json:"no_price"`
+	YesBid         int `json:"yes_bid"`
+	NoBid          int `json:"no_bid"`
+	YesAsk         int `json:"yes_ask"`
+	NoAsk          int `json:"no_ask"`
+
+	// Volume & Interest
+	Volume       int `json:"volume"`
+	Volume24H    int `json:"volume_24h"`
+	OpenInterest int `json:"open_interest"`
+	Liquidity    int `json:"liquidity"`
+	Views        int `json:"views"`
+	ViewsChange  int `json:"views_change"`
 }
 
 type MarketResponse struct {
@@ -35,6 +59,25 @@ type GetPositionsOptions struct {
 	Ticker           *string
 	EventTicker      *string
 	SettlementStatus *string
+}
+
+func NewGetPositionsOptions() GetPositionsOptions {
+	return GetPositionsOptions{}
+}
+
+func (o GetPositionsOptions) WithTicker(ticker string) GetPositionsOptions {
+	o.EventTicker = &ticker
+	return o
+}
+
+func (o GetPositionsOptions) WithEventTicker(eventTicker string) GetPositionsOptions {
+	o.EventTicker = &eventTicker
+	return o
+}
+
+func (o GetPositionsOptions) WithSettlementStatus(settlementStatus string) GetPositionsOptions {
+	o.SettlementStatus = &settlementStatus
+	return o
 }
 
 // Primary response type
@@ -79,32 +122,32 @@ type PositionsParams struct {
 }
 
 // Helper to create params with cleaner syntax
-func NewPositionsParams() *PositionsParams {
-	return &PositionsParams{}
+func NewPositionsParams() PositionsParams {
+	return PositionsParams{}
 }
 
 // Builder pattern for setting optional fields
-func (p *PositionsParams) WithCursor(cursor string) *PositionsParams {
+func (p PositionsParams) WithCursor(cursor string) PositionsParams {
 	p.Cursor = &cursor
 	return p
 }
 
-func (p *PositionsParams) WithLimit(limit int) *PositionsParams {
+func (p PositionsParams) WithLimit(limit int) PositionsParams {
 	p.Limit = &limit
 	return p
 }
 
-func (p *PositionsParams) WithTicker(ticker string) *PositionsParams {
+func (p PositionsParams) WithTicker(ticker string) PositionsParams {
 	p.Ticker = &ticker
 	return p
 }
 
-func (p *PositionsParams) WithEventTicker(eventTicker string) *PositionsParams {
+func (p PositionsParams) WithEventTicker(eventTicker string) PositionsParams {
 	p.EventTicker = &eventTicker
 	return p
 }
 
-func (p *PositionsParams) WithSettlementStatus(settlementStatus string) *PositionsParams {
+func (p PositionsParams) WithSettlementStatus(settlementStatus string) PositionsParams {
 	p.SettlementStatus = &settlementStatus
 	return p
 }

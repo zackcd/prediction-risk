@@ -26,12 +26,18 @@ type StopLossService interface {
 }
 
 type stopLossService struct {
-	repo   StopLossOrderRepo
-	kalshi *kalshi.KalshiClient
+	repo     StopLossOrderRepo
+	exchange ExchangeService
 }
 
-func NewStopLossService(repo StopLossOrderRepo) *stopLossService {
-	return &stopLossService{repo: repo}
+func NewStopLossService(
+	repo StopLossOrderRepo,
+	exchange ExchangeService,
+) *stopLossService {
+	return &stopLossService{
+		repo:     repo,
+		exchange: exchange,
+	}
 }
 
 func (s *stopLossService) GetOrder(
@@ -159,7 +165,7 @@ func (s *stopLossService) ExecuteOrder(
 		return nil, fmt.Errorf("order %s has invalid status %s", order.ID(), order.Status())
 	}
 
-	positionsResp, err := s.kalshi.Portfolio.GetPositions(kalshi.GetPositionsOptions{})
+	positionsResp, err := s.exchange.GetPositions()
 	if err != nil {
 		return nil, fmt.Errorf("getting positions: %w", err)
 	}
@@ -172,32 +178,24 @@ func (s *stopLossService) ExecuteOrder(
 	}
 
 	count := abs(position.Position)
+
 	// Execute the sell order
-
-	var orderSide kalshi.OrderSide
-	if order.Side() == entities.SideYes {
-		orderSide = kalshi.OrderSideYes
-	} else {
-		orderSide = kalshi.OrderSideNo
-	}
-
-	sellRequest := &kalshi.CreateOrderRequest{
-		Ticker:        order.Ticker(),
-		ClientOrderID: order.ID().String(),
-		Side:          orderSide,
-		Action:        kalshi.OrderActionSell,
-		Count:         count,
-		Type:          "market",
-	}
-
-	_, err = s.kalshi.Portfolio.CreateOrder(sellRequest)
+	_, err = s.exchange.CreateSellOrder(
+		order.Ticker(),
+		count,
+		order.Side(),
+		order.ID().String(),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("creating sell order: %w", err)
 	}
 
 	// Update the stop loss order status to executed and persist
 	order.SetStatus(entities.StatusExecuted)
-	s.repo.Persist(order)
+	err = s.repo.Persist(order)
+	if err != nil {
+		return nil, fmt.Errorf("persisting executed order: %w", err)
+	}
 
 	return order, nil
 }

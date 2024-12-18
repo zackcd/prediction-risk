@@ -2,6 +2,7 @@ package services
 
 import (
 	"prediction-risk/internal/domain/entities"
+	"prediction-risk/internal/domain/services/mocks"
 	"testing"
 
 	"github.com/google/uuid"
@@ -9,36 +10,14 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// Mock repository
-type MockStopLossOrderRepo struct {
-	mock.Mock
-}
-
-func (m *MockStopLossOrderRepo) GetByID(id uuid.UUID) (*entities.StopLossOrder, error) {
-	args := m.Called(id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*entities.StopLossOrder), args.Error(1)
-}
-
-func (m *MockStopLossOrderRepo) Persist(order *entities.StopLossOrder) error {
-	args := m.Called(order)
-	return args.Error(0)
-}
-
-func (m *MockStopLossOrderRepo) GetAll() ([]*entities.StopLossOrder, error) {
-	args := m.Called()
-	return args.Get(0).([]*entities.StopLossOrder), args.Error(1)
-}
-
 // Test suite
 func TestStopLossService(t *testing.T) {
 	t.Run("GetOrder", func(t *testing.T) {
 		t.Run("returns order when found", func(t *testing.T) {
 			// Arrange
-			mockRepo := new(MockStopLossOrderRepo)
-			service := NewStopLossService(mockRepo)
+			mockRepo := new(mocks.MockStopLossOrderRepo)
+			mockExchange := new(mocks.MockExchangeService)
+			service := NewStopLossService(mockRepo, mockExchange)
 
 			orderID := uuid.New()
 			threshold, err := entities.NewContractPrice(100)
@@ -57,8 +36,9 @@ func TestStopLossService(t *testing.T) {
 		})
 
 		t.Run("returns nil when not found", func(t *testing.T) {
-			mockRepo := new(MockStopLossOrderRepo)
-			service := NewStopLossService(mockRepo)
+			mockRepo := new(mocks.MockStopLossOrderRepo)
+			mockExchange := new(mocks.MockExchangeService)
+			service := NewStopLossService(mockRepo, mockExchange)
 
 			orderID := uuid.New()
 			mockRepo.On("GetByID", orderID).Return(nil, nil)
@@ -73,8 +53,9 @@ func TestStopLossService(t *testing.T) {
 
 	t.Run("CreateOrder", func(t *testing.T) {
 		t.Run("creates order successfully", func(t *testing.T) {
-			mockRepo := new(MockStopLossOrderRepo)
-			service := NewStopLossService(mockRepo)
+			mockRepo := new(mocks.MockStopLossOrderRepo)
+			mockExchange := new(mocks.MockExchangeService)
+			service := NewStopLossService(mockRepo, mockExchange)
 
 			ticker := "AAPL"
 			threshold, err := entities.NewContractPrice(100)
@@ -98,8 +79,9 @@ func TestStopLossService(t *testing.T) {
 
 	t.Run("UpdateOrder", func(t *testing.T) {
 		t.Run("updates order successfully", func(t *testing.T) {
-			mockRepo := new(MockStopLossOrderRepo)
-			service := NewStopLossService(mockRepo)
+			mockRepo := new(mocks.MockStopLossOrderRepo)
+			mockExchange := new(mocks.MockExchangeService)
+			service := NewStopLossService(mockRepo, mockExchange)
 
 			orderID := uuid.New()
 			threshold, err := entities.NewContractPrice(80)
@@ -124,8 +106,9 @@ func TestStopLossService(t *testing.T) {
 
 	t.Run("CancelOrder", func(t *testing.T) {
 		t.Run("cancels active order successfully", func(t *testing.T) {
-			mockRepo := new(MockStopLossOrderRepo)
-			service := NewStopLossService(mockRepo)
+			mockRepo := new(mocks.MockStopLossOrderRepo)
+			mockExchange := new(mocks.MockExchangeService)
+			service := NewStopLossService(mockRepo, mockExchange)
 
 			orderID := uuid.New()
 			threshold, err := entities.NewContractPrice(100)
@@ -145,8 +128,9 @@ func TestStopLossService(t *testing.T) {
 		})
 
 		t.Run("fails when order not found", func(t *testing.T) {
-			mockRepo := new(MockStopLossOrderRepo)
-			service := NewStopLossService(mockRepo)
+			mockRepo := new(mocks.MockStopLossOrderRepo)
+			mockExchange := new(mocks.MockExchangeService)
+			service := NewStopLossService(mockRepo, mockExchange)
 
 			orderID := uuid.New()
 			mockRepo.On("GetByID", orderID).Return(nil, nil)
@@ -160,8 +144,9 @@ func TestStopLossService(t *testing.T) {
 		})
 
 		t.Run("fails when order already canceled", func(t *testing.T) {
-			mockRepo := new(MockStopLossOrderRepo)
-			service := NewStopLossService(mockRepo)
+			mockRepo := new(mocks.MockStopLossOrderRepo)
+			mockExchange := new(mocks.MockExchangeService)
+			service := NewStopLossService(mockRepo, mockExchange)
 
 			orderID := uuid.New()
 			threshold, err := entities.NewContractPrice(100)

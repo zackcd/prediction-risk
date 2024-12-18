@@ -13,6 +13,15 @@ const (
 	OrderActionSell OrderAction = "SELL"
 )
 
+type OrderType string
+
+const (
+	OrderTypeLimit  OrderType = "LIMIT"
+	OrderTypeMarket OrderType = "MARKET"
+)
+
+type OrderStatus string
+
 type Order struct {
 	ExchangeOrderID string
 	Exchange        Exchange
@@ -20,4 +29,8 @@ type Order struct {
 	Ticker          string
 	Side            Side
 	Action          OrderAction
+	OrderType       OrderType
+	Status          OrderStatus
 }
+
+type Position struct{}

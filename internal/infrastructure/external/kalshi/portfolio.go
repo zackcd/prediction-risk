@@ -15,7 +15,7 @@ func NewPortfolioClient(client *baseClient) *portfolioClient {
 	}
 }
 
-func (c *portfolioClient) CreateOrder(order *CreateOrderRequest) (*CreateOrderResponse, error) {
+func (c *portfolioClient) CreateOrder(order CreateOrderRequest) (*CreateOrderResponse, error) {
 	resp, err := c.client.post(portfolioPath+"/order", order)
 	if err != nil {
 		return nil, err
@@ -31,13 +31,13 @@ func (c *portfolioClient) GetPositions(opts GetPositionsOptions) (*PositionsResu
 
 	params := NewPositionsParams().WithLimit(1000)
 	if opts.Ticker != nil {
-		params.WithTicker(*opts.Ticker)
+		params = params.WithTicker(*opts.Ticker)
 	}
 	if opts.EventTicker != nil {
-		params.WithEventTicker(*opts.EventTicker)
+		params = params.WithEventTicker(*opts.EventTicker)
 	}
 	if opts.SettlementStatus != nil {
-		params.WithSettlementStatus(*opts.SettlementStatus)
+		params = params.WithSettlementStatus(*opts.SettlementStatus)
 	}
 
 	if err := c.collectAllPositions(params, result); err != nil {
@@ -48,7 +48,7 @@ func (c *portfolioClient) GetPositions(opts GetPositionsOptions) (*PositionsResu
 }
 
 // fetchPage is a clear name for a single API call
-func (c *portfolioClient) fetchPage(params *PositionsParams) (*PositionsResponse, error) {
+func (c *portfolioClient) fetchPage(params PositionsParams) (*PositionsResponse, error) {
 	resp, err := c.client.get(portfolioPath+"/positions", paramsToMap(params))
 	if err != nil {
 		return nil, fmt.Errorf("API request failed: %w", err)
@@ -57,7 +57,7 @@ func (c *portfolioClient) fetchPage(params *PositionsParams) (*PositionsResponse
 }
 
 // collectAllPositions is clearer than "recursive" in the name
-func (c *portfolioClient) collectAllPositions(params *PositionsParams, result *PositionsResult) error {
+func (c *portfolioClient) collectAllPositions(params PositionsParams, result *PositionsResult) error {
 	for {
 		page, err := c.fetchPage(params)
 		if err != nil {
@@ -77,11 +77,7 @@ func (c *portfolioClient) collectAllPositions(params *PositionsParams, result *P
 }
 
 // Helper to convert params struct to map for the client
-func paramsToMap(params *PositionsParams) map[string]string {
-	if params == nil {
-		return nil
-	}
-
+func paramsToMap(params PositionsParams) map[string]string {
 	result := make(map[string]string)
 	if params.Cursor != nil {
 		result["cursor"] = *params.Cursor
