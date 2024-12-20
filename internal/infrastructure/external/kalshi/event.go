@@ -57,10 +57,6 @@ func (c *eventClient) collectAllEvents(params GetEventsOptions, result *EventsRe
 			result.Events = append(result.Events, page.Events...)
 		}
 
-		result.Events = append(result.Events, page.Events...)
-
-		fmt.Println(page.Events)
-
 		remaining -= len(page.Events)
 
 		if remaining <= 0 || page.Cursor == nil || len(page.Events) == 0 {
