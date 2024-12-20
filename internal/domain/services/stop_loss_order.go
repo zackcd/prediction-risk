@@ -113,6 +113,33 @@ func (s *stopLossService) UpdateOrder(
 	return order, nil
 }
 
+func (s *stopLossService) CancelOrder(
+	stopLossOrderId uuid.UUID,
+) (*entities.StopLossOrder, error) {
+	log.Printf("Cancelling stop loss order %s", stopLossOrderId)
+
+	order, err := s.repo.GetByID(stopLossOrderId)
+	if err != nil {
+		log.Printf("Error getting stop loss order %s for cancellation: %v", stopLossOrderId, err)
+		return nil, err
+	}
+
+	if order.Status() != entities.SLOStatusActive {
+		log.Printf("Cannot cancel order %s - invalid status: %s", order.ID(), order.Status())
+		return nil, fmt.Errorf("order %s has invalid status %s", order.ID(), order.Status())
+	}
+
+	order.SetStatus(entities.SLOStatusCancelled)
+
+	err = s.repo.Persist(order)
+	if err != nil {
+		log.Printf("Error persisting cancelled order %s: %v", order.ID(), err)
+		return nil, fmt.Errorf("persisting cancelled order: %w", err)
+	}
+
+	return order, nil
+}
+
 func (s *stopLossService) ExecuteOrder(
 	stopLossOrderId uuid.UUID,
 	isDryRun bool,

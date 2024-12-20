@@ -133,13 +133,14 @@ func TestStopLossService(t *testing.T) {
 			service := NewStopLossService(mockRepo, mockExchange)
 
 			orderID := uuid.New()
-			mockRepo.On("GetByID", orderID).Return(nil, nil)
+			errResult := entities.NewErrNotFound("StopLossOrderId", orderID.String())
+			mockRepo.On("GetByID", orderID).Return(nil, errResult)
 
 			order, err := service.CancelOrder(orderID)
 
 			assert.Error(t, err)
 			assert.Nil(t, order)
-			assert.IsType(t, &entities.ErrNotFound{}, err)
+			assert.IsType(t, errResult, err)
 			mockRepo.AssertExpectations(t)
 		})
 

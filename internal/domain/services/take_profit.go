@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"log"
 	"prediction-risk/internal/domain/entities"
 
@@ -101,10 +102,33 @@ func (s *takeProfitService) UpdateOrder(
 func (s *takeProfitService) CancelOrder(
 	takeProfitOrderId uuid.UUID,
 ) (*entities.TakeProfitOrder, error) {
+	log.Printf("Cancelling take profit order %s", takeProfitOrderId)
+
+	order, err := s.repo.GetByID(takeProfitOrderId)
+	if err != nil {
+		log.Printf("Error getting take profit order %s for cancellation: %v", takeProfitOrderId, err)
+		return nil, err
+	}
+
+	if order.Status() != entities.TPOStatusActive {
+		log.Printf("Cannot cancel order %s - invalid status: %s", order.ID(), order.Status())
+		return nil, fmt.Errorf("order %s has invalid status %s", order.ID(), order.Status())
+	}
+
+	order.SetStatus(entities.TPOStatusCancelled)
+
+	err = s.repo.Persist(order)
+	if err != nil {
+		log.Printf("Error persisting cancelled order %s: %v", order.ID(), err)
+		return nil, fmt.Errorf("persisting cancelled order: %w", err)
+	}
+
+	return order, nil
 }
 
 func (s *takeProfitService) ExecuteOrder(
 	takeProfitOrderId uuid.UUID,
 	isDryRun bool,
 ) (*entities.TakeProfitOrder, error) {
+	return nil, fmt.Errorf("not implemented")
 }
