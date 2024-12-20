@@ -9,6 +9,7 @@ type KalshiClient struct {
 
 	Portfolio *portfolioClient
 	Market    *marketClient
+	Event     *eventClient
 }
 
 func NewKalshiClient(host, keyID string, privateKey *rsa.PrivateKey) *KalshiClient {
@@ -19,5 +20,6 @@ func NewKalshiClient(host, keyID string, privateKey *rsa.PrivateKey) *KalshiClie
 
 		Portfolio: NewPortfolioClient(baseClient),
 		Market:    NewMarketClient(baseClient),
+		Event:     newEventClient(baseClient),
 	}
 }

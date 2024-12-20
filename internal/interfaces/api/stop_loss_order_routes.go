@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"prediction-risk/internal/domain/entities"
 	"prediction-risk/internal/domain/services"
@@ -174,6 +175,11 @@ func (r *StopLossRoutes) CancelStopLoss(w http.ResponseWriter, req *http.Request
 
 	order, err := r.service.CancelOrder(orderID)
 	if err != nil {
+		var notFoundErr *entities.ErrNotFound // Note the pointer type
+		if errors.As(err, &notFoundErr) {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

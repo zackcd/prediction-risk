@@ -1,6 +1,7 @@
 package kalshi
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -9,11 +10,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -21,7 +25,53 @@ const (
 	portfolioPath = baseAPIPath + "/portfolio"
 	exchangePath  = baseAPIPath + "/exchange"
 	marketsPath   = baseAPIPath + "/markets"
+	eventsPath    = baseAPIPath + "/events"
 )
+
+type loggingTransport struct {
+	transport http.RoundTripper
+}
+
+func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	reqID := uuid.New().String()
+	startTime := time.Now()
+
+	// Log request
+	var reqBody []byte
+	if req.Body != nil {
+		reqBody, _ = io.ReadAll(req.Body)
+		req.Body = io.NopCloser(bytes.NewBuffer(reqBody))
+	}
+
+	log.Printf("[%s] Request %s %s\n"+
+		"Body: %s\n",
+		reqID, req.Method, req.URL,
+		string(reqBody))
+
+	// Perform the request
+	resp, err := t.transport.RoundTrip(req)
+	if err != nil {
+		log.Printf("[%s] Request failed: %v", reqID, err)
+		return nil, err
+	}
+
+	// Log response
+	var respBody []byte
+	if resp.Body != nil {
+		respBody, _ = io.ReadAll(resp.Body)
+		resp.Body = io.NopCloser(bytes.NewBuffer(respBody))
+	}
+
+	duration := time.Since(startTime)
+	log.Printf("[%s] Response completed in %v\n"+
+		"Status: %s\n"+
+		"Body: %s\n",
+		reqID, duration,
+		resp.Status,
+		string(respBody))
+
+	return resp, err
+}
 
 /*
 Represents a base client to interact with the Kalshi API
@@ -45,7 +95,9 @@ func NewBaseClient(host, keyID string, privateKey *rsa.PrivateKey) *baseClient {
 		keyID:       keyID,
 		privateKey:  privateKey,
 		lastAPICall: time.Now(),
-		httpClient:  &http.Client{},
+		httpClient: &http.Client{
+			Transport: &loggingTransport{http.DefaultTransport},
+		},
 	}
 }
 
@@ -124,7 +176,7 @@ func (kc *baseClient) requestHeaders(method, path string) (map[string]string, er
 	pathParts := strings.Split(path, "?")
 
 	// Construct the message string
-	msgString := timestampStr + method + "/trade-api/v2" + pathParts[0]
+	msgString := timestampStr + method + pathParts[0]
 
 	// Sign the message
 	signature, err := kc.signPSSText(msgString)
@@ -177,7 +229,7 @@ func handleResponse[T any](resp *http.Response) (*T, error) {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		return nil, &HTTPError{
+		return nil, &KalshiError{
 			Reason:     resp.Status,
 			StatusCode: resp.StatusCode,
 			Body:       string(bodyBytes),

@@ -49,7 +49,7 @@ func (c *portfolioClient) GetPositions(opts GetPositionsOptions) (*PositionsResu
 
 // fetchPage is a clear name for a single API call
 func (c *portfolioClient) fetchPage(params PositionsParams) (*PositionsResponse, error) {
-	resp, err := c.client.get(portfolioPath+"/positions", paramsToMap(params))
+	resp, err := c.client.get(portfolioPath+"/positions", portfolioParamsToMap(params))
 	if err != nil {
 		return nil, fmt.Errorf("API request failed: %w", err)
 	}
@@ -77,7 +77,7 @@ func (c *portfolioClient) collectAllPositions(params PositionsParams, result *Po
 }
 
 // Helper to convert params struct to map for the client
-func paramsToMap(params PositionsParams) map[string]string {
+func portfolioParamsToMap(params PositionsParams) map[string]string {
 	result := make(map[string]string)
 	if params.Cursor != nil {
 		result["cursor"] = *params.Cursor

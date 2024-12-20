@@ -40,10 +40,10 @@ func main() {
 	// Setup internal services
 	exchangeService := services.NewExchangeService(kalshiClient.Market, kalshiClient.Portfolio)
 	stopLossService := services.NewStopLossService(stopLossRepo, exchangeService)
-	stopLossMonitor := services.NewStopLossMonitor(stopLossService, 5*time.Second)
+	stopLossMonitor := services.NewStopLossMonitor(stopLossService, exchangeService, 5*time.Second)
 
 	// Start background processes monitoring
-	stopLossMonitor.Start()
+	stopLossMonitor.Start(config.IsDryRun)
 	defer stopLossMonitor.Stop()
 
 	// Setup router

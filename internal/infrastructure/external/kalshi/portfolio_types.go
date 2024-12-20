@@ -1,59 +1,6 @@
 package kalshi
 
-import (
-	"time"
-)
-
-type Market struct {
-	// Market Information
-	Ticker             string  `json:"ticker"`
-	EventTicker        string  `json:"event_ticker"`
-	MultiMarketEventID string  `json:"multi_market_event_id"`
-	Title              string  `json:"title"`
-	Subtitle           string  `json:"subtitle"`
-	Description        string  `json:"description"`
-	ImageURL           *string `json:"image_url,omitempty"`
-	Category           string  `json:"category"`
-	SubCategory        string  `json:"sub_category"`
-	StrikePrice        *string `json:"strike_price,omitempty"`
-
-	// Status & Timing
-	Status         string    `json:"status"`
-	OpenTime       time.Time `json:"open_time"`
-	CloseTime      time.Time `json:"close_time"`
-	ExpirationTime time.Time `json:"expiration_time"`
-
-	// Settlement Information
-	Result            *string    `json:"result,omitempty"`
-	Settlement        string     `json:"settlement"`
-	SettlementNotes   *string    `json:"settlement_notes,omitempty"`
-	SettlementSources *string    `json:"settlement_sources,omitempty"`
-	SettlementTime    *time.Time `json:"settlement_time,omitempty"`
-	Rules             string     `json:"rules"`
-
-	// Market Data
-	MaxBinaryValue int `json:"max_binary_value"`
-	LastPrice      int `json:"last_price"`
-	PreviousPrice  int `json:"previous_price"`
-	YesPrice       int `json:"yes_price"`
-	NoPrice        int `json:"no_price"`
-	YesBid         int `json:"yes_bid"`
-	NoBid          int `json:"no_bid"`
-	YesAsk         int `json:"yes_ask"`
-	NoAsk          int `json:"no_ask"`
-
-	// Volume & Interest
-	Volume       int `json:"volume"`
-	Volume24H    int `json:"volume_24h"`
-	OpenInterest int `json:"open_interest"`
-	Liquidity    int `json:"liquidity"`
-	Views        int `json:"views"`
-	ViewsChange  int `json:"views_change"`
-}
-
-type MarketResponse struct {
-	Market Market `json:"market"`
-}
+import "time"
 
 type GetPositionsOptions struct {
 	Ticker           *string

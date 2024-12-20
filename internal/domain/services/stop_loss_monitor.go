@@ -15,17 +15,19 @@ type StopLossMonitor struct {
 }
 
 func NewStopLossMonitor(
-	StopLossService StopLossService,
+	stopLossService StopLossService,
+	exchange ExchangeService,
 	interval time.Duration,
 ) *StopLossMonitor {
 	return &StopLossMonitor{
-		stopLossService: StopLossService,
+		stopLossService: stopLossService,
+		exchange:        exchange,
 		interval:        interval,
 		done:            make(chan struct{}),
 	}
 }
 
-func (m *StopLossMonitor) Start() {
+func (m *StopLossMonitor) Start(isDryRun bool) {
 	go func() {
 		ticker := time.NewTicker(m.interval)
 		defer ticker.Stop()
@@ -35,7 +37,7 @@ func (m *StopLossMonitor) Start() {
 			case <-m.done:
 				return
 			case <-ticker.C:
-				if err := m.checkOrders(); err != nil {
+				if err := m.checkOrders(isDryRun); err != nil {
 					fmt.Printf("error checking orders: %v\n", err)
 				}
 			}
@@ -47,7 +49,7 @@ func (m *StopLossMonitor) Stop() {
 	close(m.done)
 }
 
-func (m *StopLossMonitor) checkOrders() error {
+func (m *StopLossMonitor) checkOrders(isDryRun bool) error {
 	activeOrders, err := m.stopLossService.GetActiveOrders()
 	if err != nil {
 		return fmt.Errorf("getting active orders: %w", err)
@@ -62,7 +64,7 @@ func (m *StopLossMonitor) checkOrders() error {
 		}
 
 		if m.shouldExecute(order, market) {
-			_, err := m.stopLossService.ExecuteOrder(order.ID())
+			_, err := m.stopLossService.ExecuteOrder(order.ID(), isDryRun)
 			if err != nil {
 				fmt.Printf("Error executing order %s: %v", order.ID(), err)
 			}
@@ -81,12 +83,12 @@ func (m *StopLossMonitor) shouldExecute(
 	market *kalshi.Market,
 ) bool {
 	if order.Side() == entities.SideYes &&
-		market.YesPrice < order.Threshold().Value() {
+		*market.YesPrice < order.Threshold().Value() {
 		return true
 	}
 
 	if order.Side() == entities.SideNo &&
-		market.NoPrice < order.Threshold().Value() {
+		*market.NoPrice < order.Threshold().Value() {
 		return true
 	}
 

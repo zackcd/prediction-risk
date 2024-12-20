@@ -2,12 +2,12 @@ package kalshi
 
 import "fmt"
 
-type HTTPError struct {
+type KalshiError struct {
 	Reason     string
 	StatusCode int
 	Body       string
 }
 
-func (e *HTTPError) Error() string {
-	return fmt.Sprintf("HTTPError(%d %s): %s", e.StatusCode, e.Reason, e.Body)
+func (e *KalshiError) Error() string {
+	return fmt.Sprintf("KalshiError(%d %s): %s", e.StatusCode, e.Reason, e.Body)
 }

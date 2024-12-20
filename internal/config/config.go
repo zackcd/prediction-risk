@@ -13,6 +13,7 @@ type Config struct {
 		APIKeyID   string
 		PrivateKey string
 	}
+	IsDryRun bool
 }
 
 func LoadConfig() (*Config, error) {
@@ -26,6 +27,8 @@ func LoadConfig() (*Config, error) {
 	viper.BindEnv("Kalshi.BaseURL", "KALSHI_BASE_URL")
 	viper.BindEnv("Kalshi.APIKeyID", "KALSHI_API_KEY")
 	viper.BindEnv("Kalshi.PrivateKey", "KALSHI_PRIVATE_KEY")
+	viper.SetDefault("isDryRun", true)
+	viper.BindEnv("isDryRun", "IS_DRY_RUN")
 
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {

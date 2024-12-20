@@ -22,7 +22,7 @@ type StopLossService interface {
 	UpdateOrder(stopLossOrderId uuid.UUID, threshold entities.ContractPrice) (*entities.StopLossOrder, error)
 	CancelOrder(stopLossOrderId uuid.UUID) (*entities.StopLossOrder, error)
 	GetActiveOrders() ([]*entities.StopLossOrder, error)
-	ExecuteOrder(stopLossOrderId uuid.UUID) (*entities.StopLossOrder, error)
+	ExecuteOrder(stopLossOrderId uuid.UUID, isDryRun bool) (*entities.StopLossOrder, error)
 }
 
 type stopLossService struct {
@@ -148,6 +148,7 @@ func (s *stopLossService) GetActiveOrders() ([]*entities.StopLossOrder, error) {
 // 5. Update the stop loss order status to executed
 func (s *stopLossService) ExecuteOrder(
 	stopLossOrderId uuid.UUID,
+	isDryRun bool,
 ) (
 	*entities.StopLossOrder,
 	error,
@@ -165,29 +166,31 @@ func (s *stopLossService) ExecuteOrder(
 		return nil, fmt.Errorf("order %s has invalid status %s", order.ID(), order.Status())
 	}
 
-	positionsResp, err := s.exchange.GetPositions()
-	if err != nil {
-		return nil, fmt.Errorf("getting positions: %w", err)
-	}
+	if !isDryRun {
+		positionsResp, err := s.exchange.GetPositions()
+		if err != nil {
+			return nil, fmt.Errorf("getting positions: %w", err)
+		}
 
-	position, found := lo.Find(positionsResp.MarketPositions, func(mp kalshi.MarketPosition) bool {
-		return mp.Ticker == order.Ticker()
-	})
-	if !found {
-		return nil, fmt.Errorf("no position found for ticker %s", order.Ticker())
-	}
+		position, found := lo.Find(positionsResp.MarketPositions, func(mp kalshi.MarketPosition) bool {
+			return mp.Ticker == order.Ticker()
+		})
+		if !found {
+			return nil, fmt.Errorf("no position found for ticker %s", order.Ticker())
+		}
 
-	count := abs(position.Position)
+		count := abs(position.Position)
 
-	// Execute the sell order
-	_, err = s.exchange.CreateSellOrder(
-		order.Ticker(),
-		count,
-		order.Side(),
-		order.ID().String(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("creating sell order: %w", err)
+		// Execute the sell order
+		_, err = s.exchange.CreateSellOrder(
+			order.Ticker(),
+			count,
+			order.Side(),
+			order.ID().String(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("creating sell order: %w", err)
+		}
 	}
 
 	// Update the stop loss order status to executed and persist

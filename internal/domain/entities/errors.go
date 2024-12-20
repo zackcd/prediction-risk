@@ -2,8 +2,6 @@ package entities
 
 import "fmt"
 
-// var ErrNotFound = errors.New("Entity not found")
-
 type ErrNotFound struct {
 	Entity string
 	ID     string
@@ -16,6 +14,6 @@ func (e *ErrNotFound) Error() string {
 	return fmt.Sprintf("%s with ID %s not found", e.Entity, e.ID)
 }
 
-func NewErrNotFound(entity, id string) error {
+func NewErrNotFound(entity, id string) *ErrNotFound {
 	return &ErrNotFound{Entity: entity, ID: id}
 }

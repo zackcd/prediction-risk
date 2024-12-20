@@ -73,7 +73,7 @@ func TestGetMarket(t *testing.T) {
 			name:   "market not found",
 			ticker: "INVALID-MKT",
 			mockSetup: func(m *mockMarketGetter) {
-				m.On("GetMarket", "INVALID-MKT").Return(nil, &kalshi.HTTPError{
+				m.On("GetMarket", "INVALID-MKT").Return(nil, &kalshi.KalshiError{
 					Reason:     "Market not found",
 					StatusCode: 404,
 					Body:       "",
@@ -137,7 +137,7 @@ func TestGetPositions(t *testing.T) {
 		{
 			name: "api error",
 			mockSetup: func(m *mockPortfolioManager) {
-				m.On("GetPositions", kalshi.GetPositionsOptions{}).Return(nil, &kalshi.HTTPError{
+				m.On("GetPositions", kalshi.GetPositionsOptions{}).Return(nil, &kalshi.KalshiError{
 					Reason:     "API error",
 					StatusCode: 500,
 					Body:       "",
@@ -276,7 +276,7 @@ func TestCreateSellOrder(t *testing.T) {
 					Count:         5,
 					Type:          "market",
 				}
-				m.On("CreateOrder", expectedRequest).Return(nil, &kalshi.HTTPError{
+				m.On("CreateOrder", expectedRequest).Return(nil, &kalshi.KalshiError{
 					Reason:     "Insufficient balance",
 					StatusCode: 400,
 					Body:       "",
