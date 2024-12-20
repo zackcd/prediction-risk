@@ -29,7 +29,7 @@ func (r *StopLossOrderRepoInMemory) GetByID(
 
 	order, isFound := r.data[id]
 	if !isFound {
-		return nil, nil
+		return nil, entities.NewErrNotFound("StopLossOrder", id.String())
 	}
 
 	orderCopy := *order

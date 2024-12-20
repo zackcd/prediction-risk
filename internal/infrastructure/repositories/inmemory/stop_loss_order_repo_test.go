@@ -30,7 +30,7 @@ func TestStopLossRepoInMemory(t *testing.T) {
 			assert.Equal(t, order.Threshold(), foundOrder.Threshold())
 		})
 
-		t.Run("returns nil when not found", func(t *testing.T) {
+		t.Run("returns error ErrNotFound when not found", func(t *testing.T) {
 			// Arrange
 			repo := NewStopLossRepoInMemory()
 			id := uuid.New()
@@ -38,9 +38,15 @@ func TestStopLossRepoInMemory(t *testing.T) {
 			// Act
 			order, err := repo.GetByID(id)
 
+			expectedErr := &entities.ErrNotFound{
+				Entity: "StopLossOrder",
+				ID:     id.String(),
+			}
+
 			// Assert
-			require.NoError(t, err)
-			assert.Nil(t, order)
+			require.Error(t, err)
+			require.Nil(t, order)
+			assert.Equal(t, expectedErr, err)
 		})
 	})
 

@@ -28,7 +28,7 @@ func NewStopLossOrder(
 		ticker:    ticker,
 		side:      side,
 		threshold: threshold,
-		status:    StatusActive,
+		status:    SLOStatusActive,
 		createdAt: currentTime,
 		updatedAt: currentTime,
 	}
@@ -58,3 +58,16 @@ func (o *StopLossOrder) SetStatus(status StopLossOrderStatus) {
 func (o *StopLossOrder) updateTimestamp() {
 	o.updatedAt = time.Now().UTC()
 }
+
+type StopLossOrderStatus string
+
+// Active means the order is currently being monitored
+// Executed means the order has been triggered
+// Cancelled means the order has been cancelled
+// Expired means the event has passed and the order is no longer valid
+const (
+	SLOStatusActive    StopLossOrderStatus = "ACTIVE"
+	SLOStatusExecuted  StopLossOrderStatus = "EXECUTED"
+	SLOStatusCancelled StopLossOrderStatus = "CANCELLED"
+	SLOStatusExpired   StopLossOrderStatus = "EXPIRED"
+)

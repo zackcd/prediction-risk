@@ -121,9 +121,9 @@ const (
 	OrderTypeMarket = "market"
 
 	// Status
-	OrderStatusOpen     = "open"
-	OrderStatusCanceled = "canceled"
-	OrderStatusExecuted = "executed"
-	OrderStatusExpired  = "expired"
-	OrderStatusReduced  = "reduced"
+	OrderStatusOpen      = "open"
+	OrderStatusCancelled = "cancelled"
+	OrderStatusExecuted  = "executed"
+	OrderStatusExpired   = "expired"
+	OrderStatusReduced   = "reduced"
 )

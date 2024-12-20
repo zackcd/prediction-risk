@@ -355,7 +355,7 @@ func TestStopLossRoutes(t *testing.T) {
 
 			existingOrder := entities.NewStopLossOrder("AAPL-2024", entities.SideYes, threshold)
 			cancelledOrder := entities.NewStopLossOrder("AAPL-2024", entities.SideYes, threshold)
-			cancelledOrder.SetStatus(entities.StatusCanceled)
+			cancelledOrder.SetStatus(entities.SLOStatusCancelled)
 
 			mockService.On("CancelOrder", existingOrder.ID()).Return(cancelledOrder, nil)
 
@@ -384,7 +384,7 @@ func TestStopLossRoutes(t *testing.T) {
 			router, mockService := setupTest()
 
 			nonExistentID := uuid.New()
-			mockService.On("CancelOrder", nonExistentID).Return(nil, entities.NewErrNotFound("order", nonExistentID.String()))
+			mockService.On("CancelOrder", nonExistentID).Return(nil, entities.NewErrNotFound("StopLossOrder", nonExistentID.String()))
 
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(

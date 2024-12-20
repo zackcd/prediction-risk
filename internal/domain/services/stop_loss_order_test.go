@@ -64,7 +64,7 @@ func TestStopLossService(t *testing.T) {
 			mockRepo.On("Persist", mock.MatchedBy(func(order *entities.StopLossOrder) bool {
 				return order.Ticker() == ticker &&
 					order.Threshold() == threshold &&
-					order.Status() == entities.StatusActive
+					order.Status() == entities.SLOStatusActive
 			})).Return(nil)
 
 			order, err := service.CreateOrder(ticker, entities.SideYes, threshold)
@@ -72,7 +72,7 @@ func TestStopLossService(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, ticker, order.Ticker())
 			assert.Equal(t, threshold, order.Threshold())
-			assert.Equal(t, entities.StatusActive, order.Status())
+			assert.Equal(t, entities.SLOStatusActive, order.Status())
 			mockRepo.AssertExpectations(t)
 		})
 	})
@@ -117,13 +117,13 @@ func TestStopLossService(t *testing.T) {
 
 			mockRepo.On("GetByID", orderID).Return(existingOrder, nil)
 			mockRepo.On("Persist", mock.MatchedBy(func(order *entities.StopLossOrder) bool {
-				return order.Status() == entities.StatusCanceled
+				return order.Status() == entities.SLOStatusCancelled
 			})).Return(nil)
 
 			order, err := service.CancelOrder(orderID)
 
 			assert.NoError(t, err)
-			assert.Equal(t, entities.StatusCanceled, order.Status())
+			assert.Equal(t, entities.SLOStatusCancelled, order.Status())
 			mockRepo.AssertExpectations(t)
 		})
 
@@ -143,7 +143,7 @@ func TestStopLossService(t *testing.T) {
 			mockRepo.AssertExpectations(t)
 		})
 
-		t.Run("fails when order already canceled", func(t *testing.T) {
+		t.Run("fails when order already cancelled", func(t *testing.T) {
 			mockRepo := new(mocks.MockStopLossOrderRepo)
 			mockExchange := new(mocks.MockExchangeService)
 			service := NewStopLossService(mockRepo, mockExchange)
@@ -152,7 +152,7 @@ func TestStopLossService(t *testing.T) {
 			threshold, err := entities.NewContractPrice(100)
 			assert.NoError(t, err)
 			existingOrder := entities.NewStopLossOrder("AAPL", entities.SideYes, threshold)
-			existingOrder.SetStatus(entities.StatusCanceled)
+			existingOrder.SetStatus(entities.SLOStatusCancelled)
 
 			mockRepo.On("GetByID", orderID).Return(existingOrder, nil)
 
