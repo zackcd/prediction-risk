@@ -59,46 +59,6 @@ type MarketPosition struct {
 	TotalTradedCost    int       `json:"total_traded_cost"`
 }
 
-// Optional query parameters for the request
-type PositionsParams struct {
-	Cursor           *string `json:"cursor,omitempty"`
-	Limit            *int    `json:"limit,omitempty"`
-	SettlementStatus *string `json:"settlement_status,omitempty"`
-	Ticker           *string `json:"ticker,omitempty"`
-	EventTicker      *string `json:"event_ticker,omitempty"`
-}
-
-// Helper to create params with cleaner syntax
-func NewPositionsParams() PositionsParams {
-	return PositionsParams{}
-}
-
-// Builder pattern for setting optional fields
-func (p PositionsParams) WithCursor(cursor string) PositionsParams {
-	p.Cursor = &cursor
-	return p
-}
-
-func (p PositionsParams) WithLimit(limit int) PositionsParams {
-	p.Limit = &limit
-	return p
-}
-
-func (p PositionsParams) WithTicker(ticker string) PositionsParams {
-	p.Ticker = &ticker
-	return p
-}
-
-func (p PositionsParams) WithEventTicker(eventTicker string) PositionsParams {
-	p.EventTicker = &eventTicker
-	return p
-}
-
-func (p PositionsParams) WithSettlementStatus(settlementStatus string) PositionsParams {
-	p.SettlementStatus = &settlementStatus
-	return p
-}
-
 type OrderAction string
 
 const (

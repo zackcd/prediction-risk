@@ -23,21 +23,10 @@ func (c *portfolioClient) CreateOrder(order CreateOrderRequest) (*CreateOrderRes
 	return handleResponse[CreateOrderResponse](resp)
 }
 
-func (c *portfolioClient) GetPositions(opts GetPositionsOptions) (*PositionsResult, error) {
+func (c *portfolioClient) GetPositions(params GetPositionsOptions) (*PositionsResult, error) {
 	result := &PositionsResult{
 		MarketPositions: make([]MarketPosition, 0),
 		EventPositions:  make([]EventPosition, 0),
-	}
-
-	params := NewPositionsParams().WithLimit(1000)
-	if opts.Ticker != nil {
-		params = params.WithTicker(*opts.Ticker)
-	}
-	if opts.EventTicker != nil {
-		params = params.WithEventTicker(*opts.EventTicker)
-	}
-	if opts.SettlementStatus != nil {
-		params = params.WithSettlementStatus(*opts.SettlementStatus)
 	}
 
 	if err := c.collectAllPositions(params, result); err != nil {
@@ -47,19 +36,12 @@ func (c *portfolioClient) GetPositions(opts GetPositionsOptions) (*PositionsResu
 	return result, nil
 }
 
-// fetchPage is a clear name for a single API call
-func (c *portfolioClient) fetchPage(params PositionsParams) (*PositionsResponse, error) {
-	resp, err := c.client.get(portfolioPath+"/positions", portfolioParamsToMap(params))
-	if err != nil {
-		return nil, fmt.Errorf("API request failed: %w", err)
-	}
-	return handleResponse[PositionsResponse](resp)
-}
-
 // collectAllPositions is clearer than "recursive" in the name
-func (c *portfolioClient) collectAllPositions(params PositionsParams, result *PositionsResult) error {
+func (c *portfolioClient) collectAllPositions(params GetPositionsOptions, result *PositionsResult) error {
+	var cursor *string
+
 	for {
-		page, err := c.fetchPage(params)
+		page, err := c.fetchPage(params, cursor, nil)
 		if err != nil {
 			return fmt.Errorf("fetching page: %w", err)
 		}
@@ -67,23 +49,31 @@ func (c *portfolioClient) collectAllPositions(params PositionsParams, result *Po
 		result.MarketPositions = append(result.MarketPositions, page.MarketPositions...)
 		result.EventPositions = append(result.EventPositions, page.EventPositions...)
 
-		if page.Cursor == nil {
+		if page.Cursor == nil || len(page.EventPositions)+len(page.MarketPositions) == 0 {
 			break
 		}
-		params = params.WithCursor(*page.Cursor)
+		cursor = page.Cursor
 	}
 
 	return nil
 }
 
-// Helper to convert params struct to map for the client
-func portfolioParamsToMap(params PositionsParams) map[string]string {
-	result := make(map[string]string)
-	if params.Cursor != nil {
-		result["cursor"] = *params.Cursor
+func (c *portfolioClient) fetchPage(params GetPositionsOptions, cursor *string, limit *int) (*PositionsResponse, error) {
+	resp, err := c.client.get(portfolioPath+"/positions", portfolioParamsToMap(params, cursor, limit))
+	if err != nil {
+		return nil, fmt.Errorf("API request failed: %w", err)
 	}
-	if params.Limit != nil {
-		result["limit"] = strconv.Itoa(*params.Limit)
+	return handleResponse[PositionsResponse](resp)
+}
+
+// Helper to convert params struct to map for the client
+func portfolioParamsToMap(params GetPositionsOptions, cursor *string, limit *int) map[string]string {
+	result := make(map[string]string)
+	if cursor != nil {
+		result["cursor"] = *cursor
+	}
+	if limit != nil {
+		result["limit"] = strconv.Itoa(*limit)
 	}
 	if params.SettlementStatus != nil {
 		result["settlement_status"] = *params.SettlementStatus
