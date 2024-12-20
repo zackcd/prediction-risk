@@ -37,16 +37,35 @@ func (c *marketClient) GetMarkets(params GetMarketsOptions) (*MarketsResult, err
 
 func (c *marketClient) collectAllMarkets(params GetMarketsOptions, result *MarketsResult) error {
 	var cursor *string
+	var remaining int
+	if params.Limit != nil {
+		remaining = *params.Limit
+	} else {
+		remaining = 1000 // default limit
+	}
 
 	for {
-		page, err := c.fetchPage(params, cursor, nil)
+		// Calculate page size for this request
+		pageSize := remaining
+		if pageSize > 1000 { // Assuming API max page size is 100
+			pageSize = 1000
+		}
+
+		page, err := c.fetchPage(params, cursor, &pageSize)
 		if err != nil {
 			return fmt.Errorf("fetching page: %w", err)
 		}
 
-		result.Markets = append(result.Markets, page.Markets...)
+		// Only take what we need from this page
+		if len(page.Markets) > remaining {
+			result.Markets = append(result.Markets, page.Markets[:remaining]...)
+		} else {
+			result.Markets = append(result.Markets, page.Markets...)
+		}
 
-		if page.Cursor == nil {
+		remaining -= len(page.Markets)
+
+		if remaining <= 0 || page.Cursor == nil || len(page.Markets) == 0 {
 			break
 		}
 		cursor = page.Cursor

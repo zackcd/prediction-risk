@@ -11,6 +11,7 @@ type GetMarketsOptions struct {
 	MaxCloseTime *time.Time
 	MinCloseTime *time.Time
 	Status       *[]string
+	Limit        *int
 }
 
 func NewGetMarketsOptions() GetMarketsOptions {

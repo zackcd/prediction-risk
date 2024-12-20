@@ -36,13 +36,18 @@ func (c *eventClient) GetEvents(params GetEventsOptions) (*EventsResult, error) 
 
 func (c *eventClient) collectAllEvents(params GetEventsOptions, result *EventsResult) error {
 	var cursor *string
-	remaining := *params.Limit
+	var remaining int
+	if params.Limit != nil {
+		remaining = *params.Limit
+	} else {
+		remaining = 200 // default limit
+	}
 
 	for {
 		// Calculate page size for this request
 		pageSize := remaining
-		if pageSize > 100 { // Assuming API max page size is 100
-			pageSize = 100
+		if pageSize > 200 { // Assuming API max page size is 100
+			pageSize = 200
 		}
 
 		page, err := c.fetchPage(params, cursor, &pageSize)
