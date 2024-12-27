@@ -42,25 +42,25 @@ type UpdateStopLossRequest struct {
 }
 
 type StopLossOrderResponse struct {
-	ID        string    `json:"id"`
-	Ticker    string    `json:"ticker"`
-	Side      string    `json:"side"`
-	Threshold int       `json:"threshold"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID           string    `json:"id"`
+	Ticker       string    `json:"ticker"`
+	Side         string    `json:"side"`
+	TriggerPrice int       `json:"trigger_price"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // In api/mappers.go
 func ToStopLossOrderResponse(order *entities.StopLossOrder) StopLossOrderResponse {
 	return StopLossOrderResponse{
-		ID:        order.ID().String(),
-		Ticker:    order.Ticker(),
-		Side:      order.Side().String(),
-		Threshold: order.Threshold().Value(),
-		Status:    string(order.Status()),
-		CreatedAt: order.CreatedAt(),
-		UpdatedAt: order.UpdatedAt(),
+		ID:           order.ID().String(),
+		Ticker:       order.Ticker(),
+		Side:         order.Side().String(),
+		TriggerPrice: order.TriggerPrice().Value(),
+		Status:       string(order.Status()),
+		CreatedAt:    order.CreatedAt(),
+		UpdatedAt:    order.UpdatedAt(),
 	}
 }
 

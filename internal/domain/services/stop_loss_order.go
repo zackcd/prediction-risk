@@ -62,7 +62,7 @@ func (s *stopLossService) GetActiveOrders() ([]*entities.StopLossOrder, error) {
 
 	activeOrders := make([]*entities.StopLossOrder, 0, len(orders))
 	for _, order := range orders {
-		if order.Status() == entities.SLOStatusActive {
+		if order.Status() == entities.OrderStatusActive {
 			activeOrders = append(activeOrders, order)
 		}
 	}
@@ -101,8 +101,8 @@ func (s *stopLossService) UpdateOrder(
 		return nil, err
 	}
 
-	oldThreshold := order.Threshold().Value()
-	order.SetThreshold(threshold)
+	oldThreshold := order.TriggerPrice().Value()
+	order.UpdateTriggerPrice(threshold)
 	log.Printf("Updated threshold for order %s: %d -> %d", order.ID(), oldThreshold, threshold.Value())
 
 	if err := s.repo.Persist(order); err != nil {
@@ -124,12 +124,12 @@ func (s *stopLossService) CancelOrder(
 		return nil, err
 	}
 
-	if order.Status() != entities.SLOStatusActive {
+	if order.Status() != entities.OrderStatusActive {
 		log.Printf("Cannot cancel order %s - invalid status: %s", order.ID(), order.Status())
 		return nil, fmt.Errorf("order %s has invalid status %s", order.ID(), order.Status())
 	}
 
-	order.SetStatus(entities.SLOStatusCancelled)
+	order.UpdateStatus(entities.OrderStatusCancelled)
 
 	err = s.repo.Persist(order)
 	if err != nil {
@@ -152,7 +152,7 @@ func (s *stopLossService) ExecuteOrder(
 		return nil, err
 	}
 
-	if order.Status() != entities.SLOStatusActive {
+	if order.Status() != entities.OrderStatusActive {
 		log.Printf("Cannot execute order %s - invalid status: %s", order.ID(), order.Status())
 		return nil, fmt.Errorf("order %s has invalid status %s", order.ID(), order.Status())
 	}
@@ -189,7 +189,7 @@ func (s *stopLossService) ExecuteOrder(
 		log.Printf("Successfully created sell order for stop loss %s", order.ID())
 	}
 
-	order.SetStatus(entities.SLOStatusExecuted)
+	order.UpdateStatus(entities.OrderStatusTriggered)
 	err = s.repo.Persist(order)
 	if err != nil {
 		log.Printf("Error persisting executed order %s: %v", order.ID(), err)

@@ -143,7 +143,7 @@ func TestStopLossRoutes(t *testing.T) {
 			assert.Equal(t, expectedOrder.ID().String(), response.ID)
 			assert.Equal(t, "AAPL-2024", response.Ticker)
 			assert.Equal(t, "YES", response.Side)
-			assert.Equal(t, 50, response.Threshold)
+			assert.Equal(t, 50, response.TriggerPrice)
 			assert.Equal(t, "ACTIVE", response.Status)
 
 			mockService.AssertExpectations(t)
@@ -198,7 +198,7 @@ func TestStopLossRoutes(t *testing.T) {
 			assert.Equal(t, expectedOrder.ID().String(), response.ID)
 			assert.Equal(t, expectedOrder.Ticker(), response.Ticker)
 			assert.Equal(t, expectedOrder.Side().String(), response.Side)
-			assert.Equal(t, int(expectedOrder.Threshold().Value()), response.Threshold)
+			assert.Equal(t, int(expectedOrder.TriggerPrice().Value()), response.TriggerPrice)
 			assert.Equal(t, string(expectedOrder.Status()), response.Status)
 
 			mockService.AssertExpectations(t)
@@ -249,13 +249,13 @@ func TestStopLossRoutes(t *testing.T) {
 			assert.Equal(t, expectedOrder1.ID().String(), response[0].ID)
 			assert.Equal(t, expectedOrder1.Ticker(), response[0].Ticker)
 			assert.Equal(t, expectedOrder1.Side().String(), response[0].Side)
-			assert.Equal(t, int(expectedOrder1.Threshold().Value()), response[0].Threshold)
+			assert.Equal(t, int(expectedOrder1.TriggerPrice().Value()), response[0].TriggerPrice)
 
 			// Verify second order
 			assert.Equal(t, expectedOrder2.ID().String(), response[1].ID)
 			assert.Equal(t, expectedOrder2.Ticker(), response[1].Ticker)
 			assert.Equal(t, expectedOrder2.Side().String(), response[1].Side)
-			assert.Equal(t, int(expectedOrder2.Threshold().Value()), response[1].Threshold)
+			assert.Equal(t, int(expectedOrder2.TriggerPrice().Value()), response[1].TriggerPrice)
 
 			mockService.AssertExpectations(t)
 		})
@@ -284,7 +284,7 @@ func TestStopLossRoutes(t *testing.T) {
 
 			existingOrder := entities.NewStopLossOrder("AAPL-2024", entities.SideYes, initialThreshold)
 			updatedOrder := existingOrder
-			updatedOrder.SetThreshold(newThreshold)
+			updatedOrder.UpdateTriggerPrice(newThreshold)
 
 			mockService.On("UpdateOrder", existingOrder.ID(), newThreshold).Return(updatedOrder, nil)
 
@@ -309,7 +309,7 @@ func TestStopLossRoutes(t *testing.T) {
 			err = json.NewDecoder(rec.Body).Decode(&response)
 			assert.NoError(t, err)
 			assert.Equal(t, updatedOrder.ID().String(), response.ID)
-			assert.Equal(t, int(updatedOrder.Threshold().Value()), response.Threshold)
+			assert.Equal(t, int(updatedOrder.TriggerPrice().Value()), response.TriggerPrice)
 
 			mockService.AssertExpectations(t)
 		})
@@ -355,7 +355,7 @@ func TestStopLossRoutes(t *testing.T) {
 
 			existingOrder := entities.NewStopLossOrder("AAPL-2024", entities.SideYes, threshold)
 			cancelledOrder := entities.NewStopLossOrder("AAPL-2024", entities.SideYes, threshold)
-			cancelledOrder.SetStatus(entities.SLOStatusCancelled)
+			cancelledOrder.UpdateStatus(entities.OrderStatusCancelled)
 
 			mockService.On("CancelOrder", existingOrder.ID()).Return(cancelledOrder, nil)
 

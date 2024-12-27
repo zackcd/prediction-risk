@@ -27,7 +27,7 @@ func TestStopLossRepoInMemory(t *testing.T) {
 			require.NotNil(t, foundOrder)
 			assert.Equal(t, order.ID(), foundOrder.ID())
 			assert.Equal(t, order.Ticker(), foundOrder.Ticker())
-			assert.Equal(t, order.Threshold(), foundOrder.Threshold())
+			assert.Equal(t, order.TriggerPrice(), foundOrder.TriggerPrice())
 		})
 
 		t.Run("returns error ErrNotFound when not found", func(t *testing.T) {
@@ -69,7 +69,7 @@ func TestStopLossRepoInMemory(t *testing.T) {
 			require.NotNil(t, foundOrder)
 			assert.Equal(t, order.ID(), foundOrder.ID())
 			assert.Equal(t, order.Ticker(), foundOrder.Ticker())
-			assert.Equal(t, order.Threshold(), foundOrder.Threshold())
+			assert.Equal(t, order.TriggerPrice(), foundOrder.TriggerPrice())
 		})
 
 		t.Run("successfully updates existing order", func(t *testing.T) {
@@ -83,7 +83,7 @@ func TestStopLossRepoInMemory(t *testing.T) {
 			// Act
 			newThreshold, err := entities.NewContractPrice(30)
 			require.NoError(t, err)
-			order.SetThreshold(newThreshold)
+			order.UpdateTriggerPrice(newThreshold)
 			persistErr := repo.Persist(order)
 
 			// Assert
@@ -93,7 +93,7 @@ func TestStopLossRepoInMemory(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, foundOrder)
 			assert.Equal(t, order.ID(), foundOrder.ID())
-			assert.Equal(t, newThreshold, foundOrder.Threshold())
+			assert.Equal(t, newThreshold, foundOrder.TriggerPrice())
 		})
 
 		t.Run("updates preserve all fields", func(t *testing.T) {
@@ -108,7 +108,7 @@ func TestStopLossRepoInMemory(t *testing.T) {
 			originalTicker := order.Ticker()
 			newThreshold, err := entities.NewContractPrice(30)
 			require.NoError(t, err)
-			order.SetThreshold(newThreshold)
+			order.UpdateTriggerPrice(newThreshold)
 			persistErr := repo.Persist(order)
 
 			// Assert
@@ -118,7 +118,7 @@ func TestStopLossRepoInMemory(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, foundOrder)
 			assert.Equal(t, originalTicker, foundOrder.Ticker(), "Ticker should be preserved during update")
-			assert.Equal(t, newThreshold, foundOrder.Threshold(), "Threshold should be updated")
+			assert.Equal(t, newThreshold, foundOrder.TriggerPrice(), "Threshold should be updated")
 		})
 	})
 }

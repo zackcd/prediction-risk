@@ -179,7 +179,7 @@ func TestCreateSellOrder(t *testing.T) {
 		orderID     string
 		mockSetup   func(*mockPortfolioManager)
 		expectError bool
-		expectOrder *entities.Order
+		expectOrder *entities.ExchangeOrder
 	}{
 		{
 			name:    "successful yes sell order",
@@ -210,7 +210,7 @@ func TestCreateSellOrder(t *testing.T) {
 				}, nil)
 			},
 			expectError: false,
-			expectOrder: &entities.Order{
+			expectOrder: &entities.ExchangeOrder{
 				ExchangeOrderID: "exchange-123",
 				Exchange:        entities.ExchangeKalshi,
 				InternalOrderID: "order-123",
@@ -218,7 +218,7 @@ func TestCreateSellOrder(t *testing.T) {
 				Side:            entities.SideYes,
 				Action:          entities.OrderActionSell,
 				OrderType:       entities.OrderTypeMarket,
-				Status:          entities.OrderStatus("open"),
+				Status:          "open",
 			},
 		},
 		{
@@ -250,7 +250,7 @@ func TestCreateSellOrder(t *testing.T) {
 				}, nil)
 			},
 			expectError: false,
-			expectOrder: &entities.Order{
+			expectOrder: &entities.ExchangeOrder{
 				ExchangeOrderID: "exchange-123",
 				Exchange:        entities.ExchangeKalshi,
 				InternalOrderID: "order-123",
@@ -258,7 +258,7 @@ func TestCreateSellOrder(t *testing.T) {
 				Side:            entities.SideNo,
 				Action:          entities.OrderActionSell,
 				OrderType:       entities.OrderTypeMarket,
-				Status:          entities.OrderStatus("open"),
+				Status:          "open",
 			},
 		},
 		{

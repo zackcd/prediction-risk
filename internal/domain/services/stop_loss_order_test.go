@@ -63,16 +63,16 @@ func TestStopLossService(t *testing.T) {
 
 			mockRepo.On("Persist", mock.MatchedBy(func(order *entities.StopLossOrder) bool {
 				return order.Ticker() == ticker &&
-					order.Threshold() == threshold &&
-					order.Status() == entities.SLOStatusActive
+					order.TriggerPrice() == threshold &&
+					order.Status() == entities.OrderStatusActive
 			})).Return(nil)
 
 			order, err := service.CreateOrder(ticker, entities.SideYes, threshold)
 
 			assert.NoError(t, err)
 			assert.Equal(t, ticker, order.Ticker())
-			assert.Equal(t, threshold, order.Threshold())
-			assert.Equal(t, entities.SLOStatusActive, order.Status())
+			assert.Equal(t, threshold, order.TriggerPrice())
+			assert.Equal(t, entities.OrderStatusActive, order.Status())
 			mockRepo.AssertExpectations(t)
 		})
 	})
@@ -93,13 +93,13 @@ func TestStopLossService(t *testing.T) {
 
 			mockRepo.On("GetByID", orderID).Return(existingOrder, nil)
 			mockRepo.On("Persist", mock.MatchedBy(func(order *entities.StopLossOrder) bool {
-				return order.Threshold() == newThreshold
+				return order.TriggerPrice() == newThreshold
 			})).Return(nil)
 
 			order, err := service.UpdateOrder(orderID, newThreshold)
 
 			assert.NoError(t, err)
-			assert.Equal(t, newThreshold, order.Threshold())
+			assert.Equal(t, newThreshold, order.TriggerPrice())
 			mockRepo.AssertExpectations(t)
 		})
 	})
@@ -117,13 +117,13 @@ func TestStopLossService(t *testing.T) {
 
 			mockRepo.On("GetByID", orderID).Return(existingOrder, nil)
 			mockRepo.On("Persist", mock.MatchedBy(func(order *entities.StopLossOrder) bool {
-				return order.Status() == entities.SLOStatusCancelled
+				return order.Status() == entities.OrderStatusCancelled
 			})).Return(nil)
 
 			order, err := service.CancelOrder(orderID)
 
 			assert.NoError(t, err)
-			assert.Equal(t, entities.SLOStatusCancelled, order.Status())
+			assert.Equal(t, entities.OrderStatusCancelled, order.Status())
 			mockRepo.AssertExpectations(t)
 		})
 
@@ -153,7 +153,7 @@ func TestStopLossService(t *testing.T) {
 			threshold, err := entities.NewContractPrice(100)
 			assert.NoError(t, err)
 			existingOrder := entities.NewStopLossOrder("AAPL", entities.SideYes, threshold)
-			existingOrder.SetStatus(entities.SLOStatusCancelled)
+			existingOrder.UpdateStatus(entities.OrderStatusCancelled)
 
 			mockRepo.On("GetByID", orderID).Return(existingOrder, nil)
 

@@ -67,7 +67,7 @@ func (m *StopLossMonitor) checkOrders(isDryRun bool) error {
 			order.ID(),
 			order.Ticker(),
 			order.Side(),
-			order.Threshold().Value(),
+			order.TriggerPrice().Value(),
 		)
 
 		// Get Market from KalshiClient
@@ -83,13 +83,13 @@ func (m *StopLossMonitor) checkOrders(isDryRun bool) error {
 			log.Printf("Market %s YES bid: %d (threshold: %d)",
 				order.Ticker(),
 				market.YesBid,
-				order.Threshold().Value(),
+				order.TriggerPrice().Value(),
 			)
 		} else {
 			log.Printf("Market %s NO bid: %d (threshold: %d)",
 				order.Ticker(),
 				market.NoBid,
-				order.Threshold().Value(),
+				order.TriggerPrice().Value(),
 			)
 		}
 
@@ -117,9 +117,9 @@ func (m *StopLossMonitor) shouldExecute(order *entities.StopLossOrder, market *k
 		bid = market.NoBid
 	}
 
-	if bid < order.Threshold().Value() {
+	if bid < order.TriggerPrice().Value() {
 		log.Printf("%s stop loss triggered - bid (%d) below threshold (%d)",
-			order.Side(), bid, order.Threshold().Value())
+			order.Side(), bid, order.TriggerPrice().Value())
 		return true
 	}
 	return false
