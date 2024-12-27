@@ -9,6 +9,10 @@ import (
 
 type OrderType string
 
+func (t OrderType) String() string {
+	return string(t)
+}
+
 const (
 	OrderTypeStopLoss   OrderType = "STOP_LOSS"
 	OrderTypeTakeProfit OrderType = "TAKE_PROFIT"

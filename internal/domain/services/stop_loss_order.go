@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"log"
 	"prediction-risk/internal/domain/entities"
-	"prediction-risk/internal/infrastructure/external/kalshi"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 )
 
 type StopLossOrderRepo interface {
@@ -16,7 +14,7 @@ type StopLossOrderRepo interface {
 	Persist(stopLossOrder *entities.StopLossOrder) error
 }
 
-type StopLossService interface {
+type StopLossOrderService interface {
 	GetOrder(stopLossOrderId uuid.UUID) (*entities.StopLossOrder, error)
 	GetActiveOrders() ([]*entities.StopLossOrder, error)
 	CreateOrder(ticker string, side entities.Side, threshold entities.ContractPrice) (*entities.StopLossOrder, error)
@@ -25,22 +23,22 @@ type StopLossService interface {
 	ExecuteOrder(stopLossOrderId uuid.UUID, isDryRun bool) (*entities.StopLossOrder, error)
 }
 
-type stopLossService struct {
+type stopLossOrderService struct {
 	repo     StopLossOrderRepo
-	exchange ExchangeService
+	executor OrderExecutor
 }
 
 func NewStopLossService(
 	repo StopLossOrderRepo,
-	exchange ExchangeService,
-) *stopLossService {
-	return &stopLossService{
+	executor OrderExecutor,
+) *stopLossOrderService {
+	return &stopLossOrderService{
 		repo:     repo,
-		exchange: exchange,
+		executor: executor,
 	}
 }
 
-func (s *stopLossService) GetOrder(
+func (s *stopLossOrderService) GetOrder(
 	stopLossOrderId uuid.UUID,
 ) (*entities.StopLossOrder, error) {
 	log.Printf("Getting stop loss order: %s", stopLossOrderId)
@@ -52,7 +50,7 @@ func (s *stopLossService) GetOrder(
 	return order, nil
 }
 
-func (s *stopLossService) GetActiveOrders() ([]*entities.StopLossOrder, error) {
+func (s *stopLossOrderService) GetActiveOrders() ([]*entities.StopLossOrder, error) {
 	log.Println("Getting all active stop loss orders")
 	orders, err := s.repo.GetAll()
 	if err != nil {
@@ -71,8 +69,9 @@ func (s *stopLossService) GetActiveOrders() ([]*entities.StopLossOrder, error) {
 	return activeOrders, nil
 }
 
-func (s *stopLossService) CreateOrder(
-	ticker string, side entities.Side,
+func (s *stopLossOrderService) CreateOrder(
+	ticker string,
+	side entities.Side,
 	threshold entities.ContractPrice,
 ) (*entities.StopLossOrder, error) {
 	log.Printf("Creating stop loss order - ticker: %s, side: %s, threshold: %d",
@@ -89,7 +88,7 @@ func (s *stopLossService) CreateOrder(
 	return order, nil
 }
 
-func (s *stopLossService) UpdateOrder(
+func (s *stopLossOrderService) UpdateOrder(
 	stopLossOrderId uuid.UUID,
 	threshold entities.ContractPrice,
 ) (*entities.StopLossOrder, error) {
@@ -113,7 +112,7 @@ func (s *stopLossService) UpdateOrder(
 	return order, nil
 }
 
-func (s *stopLossService) CancelOrder(
+func (s *stopLossOrderService) CancelOrder(
 	stopLossOrderId uuid.UUID,
 ) (*entities.StopLossOrder, error) {
 	log.Printf("Cancelling stop loss order %s", stopLossOrderId)
@@ -140,7 +139,7 @@ func (s *stopLossService) CancelOrder(
 	return order, nil
 }
 
-func (s *stopLossService) ExecuteOrder(
+func (s *stopLossOrderService) ExecuteOrder(
 	stopLossOrderId uuid.UUID,
 	isDryRun bool,
 ) (*entities.StopLossOrder, error) {
@@ -152,41 +151,9 @@ func (s *stopLossService) ExecuteOrder(
 		return nil, err
 	}
 
-	if order.Status() != entities.OrderStatusActive {
-		log.Printf("Cannot execute order %s - invalid status: %s", order.ID(), order.Status())
-		return nil, fmt.Errorf("order %s has invalid status %s", order.ID(), order.Status())
-	}
-
-	if !isDryRun {
-		log.Printf("Getting positions for order %s execution", order.ID())
-		positionsResp, err := s.exchange.GetPositions()
-		if err != nil {
-			log.Printf("Error getting positions for order %s: %v", order.ID(), err)
-			return nil, fmt.Errorf("getting positions: %w", err)
-		}
-
-		position, found := lo.Find(positionsResp.MarketPositions, func(mp kalshi.MarketPosition) bool {
-			return mp.Ticker == order.Ticker()
-		})
-		if !found {
-			log.Printf("No position found for ticker %s", order.Ticker())
-			return nil, fmt.Errorf("no position found for ticker %s", order.Ticker())
-		}
-
-		count := abs(position.Position)
-		log.Printf("Executing sell order for %d contracts of %s", count, order.Ticker())
-
-		_, err = s.exchange.CreateSellOrder(
-			order.Ticker(),
-			count,
-			order.Side(),
-			order.ID().String(),
-		)
-		if err != nil {
-			log.Printf("Error creating sell order for %s: %v", order.ID(), err)
-			return nil, fmt.Errorf("creating sell order: %w", err)
-		}
-		log.Printf("Successfully created sell order for stop loss %s", order.ID())
+	if err := s.executor.ExecuteOrder(order, isDryRun); err != nil {
+		log.Printf("Error executing order %s: %v", order.ID(), err)
+		return nil, fmt.Errorf("executing order: %w", err)
 	}
 
 	order.UpdateStatus(entities.OrderStatusTriggered)
@@ -197,11 +164,4 @@ func (s *stopLossService) ExecuteOrder(
 	}
 
 	return order, nil
-}
-
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
 }

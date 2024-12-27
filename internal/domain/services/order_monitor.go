@@ -8,20 +8,20 @@ import (
 	"time"
 )
 
-type StopLossMonitor struct {
-	stopLossService StopLossService
+type OrderMonitor struct {
+	stopLossService StopLossOrderService
 	exchange        ExchangeService
 	interval        time.Duration
 	done            chan struct{}
 }
 
 func NewStopLossMonitor(
-	stopLossService StopLossService,
+	stopLossService StopLossOrderService,
 	exchange ExchangeService,
 	interval time.Duration,
-) *StopLossMonitor {
+) *OrderMonitor {
 	log.Printf("Initializing StopLossMonitor with interval: %v", interval)
-	return &StopLossMonitor{
+	return &OrderMonitor{
 		stopLossService: stopLossService,
 		exchange:        exchange,
 		interval:        interval,
@@ -29,7 +29,7 @@ func NewStopLossMonitor(
 	}
 }
 
-func (m *StopLossMonitor) Start(isDryRun bool) {
+func (m *OrderMonitor) Start(isDryRun bool) {
 	log.Printf("Starting StopLossMonitor (dry run: %v)", isDryRun)
 	go func() {
 		ticker := time.NewTicker(m.interval)
@@ -50,12 +50,12 @@ func (m *StopLossMonitor) Start(isDryRun bool) {
 	}()
 }
 
-func (m *StopLossMonitor) Stop() {
+func (m *OrderMonitor) Stop() {
 	log.Println("Stopping StopLossMonitor...")
 	close(m.done)
 }
 
-func (m *StopLossMonitor) checkOrders(isDryRun bool) error {
+func (m *OrderMonitor) checkOrders(isDryRun bool) error {
 	activeOrders, err := m.stopLossService.GetActiveOrders()
 	if err != nil {
 		return fmt.Errorf("getting active orders: %w", err)
@@ -109,7 +109,7 @@ func (m *StopLossMonitor) checkOrders(isDryRun bool) error {
 	return nil
 }
 
-func (m *StopLossMonitor) shouldExecute(order *entities.StopLossOrder, market *kalshi.Market) bool {
+func (m *OrderMonitor) shouldExecute(order *entities.StopLossOrder, market *kalshi.Market) bool {
 	var bid int
 	if order.Side() == entities.SideYes {
 		bid = market.YesBid

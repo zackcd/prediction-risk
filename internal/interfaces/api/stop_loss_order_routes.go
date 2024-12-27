@@ -14,10 +14,10 @@ import (
 )
 
 type StopLossRoutes struct {
-	service services.StopLossService
+	service services.StopLossOrderService
 }
 
-func NewStopLossRoutes(service services.StopLossService) *StopLossRoutes {
+func NewStopLossRoutes(service services.StopLossOrderService) *StopLossRoutes {
 	return &StopLossRoutes{service: service}
 }
 

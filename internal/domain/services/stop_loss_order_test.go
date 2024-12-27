@@ -16,8 +16,8 @@ func TestStopLossService(t *testing.T) {
 		t.Run("returns order when found", func(t *testing.T) {
 			// Arrange
 			mockRepo := new(mocks.MockStopLossOrderRepo)
-			mockExchange := new(mocks.MockExchangeService)
-			service := NewStopLossService(mockRepo, mockExchange)
+			mockExecutor := new(mocks.MockOrderExecutor)
+			service := NewStopLossService(mockRepo, mockExecutor)
 
 			orderID := uuid.New()
 			threshold, err := entities.NewContractPrice(100)
@@ -37,8 +37,8 @@ func TestStopLossService(t *testing.T) {
 
 		t.Run("returns nil when not found", func(t *testing.T) {
 			mockRepo := new(mocks.MockStopLossOrderRepo)
-			mockExchange := new(mocks.MockExchangeService)
-			service := NewStopLossService(mockRepo, mockExchange)
+			mockExecutor := new(mocks.MockOrderExecutor)
+			service := NewStopLossService(mockRepo, mockExecutor)
 
 			orderID := uuid.New()
 			mockRepo.On("GetByID", orderID).Return(nil, nil)
@@ -54,8 +54,8 @@ func TestStopLossService(t *testing.T) {
 	t.Run("CreateOrder", func(t *testing.T) {
 		t.Run("creates order successfully", func(t *testing.T) {
 			mockRepo := new(mocks.MockStopLossOrderRepo)
-			mockExchange := new(mocks.MockExchangeService)
-			service := NewStopLossService(mockRepo, mockExchange)
+			mockExecutor := new(mocks.MockOrderExecutor)
+			service := NewStopLossService(mockRepo, mockExecutor)
 
 			ticker := "AAPL"
 			threshold, err := entities.NewContractPrice(100)
@@ -80,8 +80,8 @@ func TestStopLossService(t *testing.T) {
 	t.Run("UpdateOrder", func(t *testing.T) {
 		t.Run("updates order successfully", func(t *testing.T) {
 			mockRepo := new(mocks.MockStopLossOrderRepo)
-			mockExchange := new(mocks.MockExchangeService)
-			service := NewStopLossService(mockRepo, mockExchange)
+			mockExecutor := new(mocks.MockOrderExecutor)
+			service := NewStopLossService(mockRepo, mockExecutor)
 
 			orderID := uuid.New()
 			threshold, err := entities.NewContractPrice(80)
@@ -107,8 +107,8 @@ func TestStopLossService(t *testing.T) {
 	t.Run("CancelOrder", func(t *testing.T) {
 		t.Run("cancels active order successfully", func(t *testing.T) {
 			mockRepo := new(mocks.MockStopLossOrderRepo)
-			mockExchange := new(mocks.MockExchangeService)
-			service := NewStopLossService(mockRepo, mockExchange)
+			mockExecutor := new(mocks.MockOrderExecutor)
+			service := NewStopLossService(mockRepo, mockExecutor)
 
 			orderID := uuid.New()
 			threshold, err := entities.NewContractPrice(100)
@@ -129,8 +129,8 @@ func TestStopLossService(t *testing.T) {
 
 		t.Run("fails when order not found", func(t *testing.T) {
 			mockRepo := new(mocks.MockStopLossOrderRepo)
-			mockExchange := new(mocks.MockExchangeService)
-			service := NewStopLossService(mockRepo, mockExchange)
+			mockExecutor := new(mocks.MockOrderExecutor)
+			service := NewStopLossService(mockRepo, mockExecutor)
 
 			orderID := uuid.New()
 			errResult := entities.NewErrNotFound("StopLossOrderId", orderID.String())
@@ -146,8 +146,8 @@ func TestStopLossService(t *testing.T) {
 
 		t.Run("fails when order already cancelled", func(t *testing.T) {
 			mockRepo := new(mocks.MockStopLossOrderRepo)
-			mockExchange := new(mocks.MockExchangeService)
-			service := NewStopLossService(mockRepo, mockExchange)
+			mockExecutor := new(mocks.MockOrderExecutor)
+			service := NewStopLossService(mockRepo, mockExecutor)
 
 			orderID := uuid.New()
 			threshold, err := entities.NewContractPrice(100)
