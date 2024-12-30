@@ -13,47 +13,50 @@ import (
 	"github.com/samber/lo"
 )
 
-type StopLossRoutes struct {
-	service services.StopLossOrderService
+type StopOrderRoutes struct {
+	service services.StopOrderService
 }
 
-func NewStopLossRoutes(service services.StopLossOrderService) *StopLossRoutes {
-	return &StopLossRoutes{service: service}
+func NewStopOrderRoutes(service services.StopOrderService) *StopOrderRoutes {
+	return &StopOrderRoutes{service: service}
 }
 
-func (routes *StopLossRoutes) Register(router chi.Router) {
-	router.Route("/api/stop-loss", func(r chi.Router) {
-		r.Post("/", routes.CreateStopLoss)
-		r.Get("/", routes.ListStopLoss)
-		r.Get("/{id}", routes.GetStopLoss)
-		r.Patch("/{id}", routes.UpdateStopLoss)
-		r.Delete("/{id}", routes.CancelStopLoss)
+func (routes *StopOrderRoutes) Register(router chi.Router) {
+	router.Route("/api/stop-orders", func(r chi.Router) {
+		r.Post("/", routes.CreateStopOrder)
+		r.Get("/", routes.ListStopOrders)
+		r.Get("/{id}", routes.GetStopOrder)
+		r.Patch("/{id}", routes.UpdateStopOrder)
+		r.Delete("/{id}", routes.CancelStopOrder)
 	})
 }
 
-type CreateStopLossRequest struct {
-	Ticker    string `json:"ticker"`
-	Side      string `json:"side"`
-	Threshold int    `json:"threshold"`
+type CreateStopOrderRequest struct {
+	Ticker       string `json:"ticker"`
+	Side         string `json:"side"`
+	TriggerPrice int    `json:"trigger_price"`
+	LimitPrice   *int   `json:"limit_price"`
 }
 
-type UpdateStopLossRequest struct {
-	Threshold int `json:"threshold"`
+type UpdateStopOrderRequest struct {
+	TriggerPrice *int `json:"trigger_price"`
+	LimitPrice   *int `json:"limit_price"`
 }
 
-type StopLossOrderResponse struct {
+type StopOrderResponse struct {
 	ID           string    `json:"id"`
 	Ticker       string    `json:"ticker"`
 	Side         string    `json:"side"`
 	TriggerPrice int       `json:"trigger_price"`
+	LimitPrice   *int      `json:"limit_price"`
 	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // In api/mappers.go
-func ToStopLossOrderResponse(order *entities.StopLossOrder) StopLossOrderResponse {
-	return StopLossOrderResponse{
+func ToStopOrderResponse(order *entities.StopOrder) StopOrderResponse {
+	return StopOrderResponse{
 		ID:           order.ID().String(),
 		Ticker:       order.Ticker(),
 		Side:         order.Side().String(),
@@ -64,8 +67,8 @@ func ToStopLossOrderResponse(order *entities.StopLossOrder) StopLossOrderRespons
 	}
 }
 
-func (r *StopLossRoutes) CreateStopLoss(w http.ResponseWriter, req *http.Request) {
-	var request CreateStopLossRequest
+func (r *StopOrderRoutes) CreateStopOrder(w http.ResponseWriter, req *http.Request) {
+	var request CreateStopOrderRequest
 	if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -77,38 +80,46 @@ func (r *StopLossRoutes) CreateStopLoss(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	threshold, err := entities.NewContractPrice(request.Threshold)
+	triggerPrice, err := entities.NewContractPrice(request.TriggerPrice)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	order, err := r.service.CreateOrder(request.Ticker, side, threshold)
+	var limitPrice *entities.ContractPrice
+	if request.LimitPrice != nil {
+		*limitPrice, err = entities.NewContractPrice(*request.LimitPrice)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+	}
+
+	order, err := r.service.CreateOrder(request.Ticker, side, triggerPrice, limitPrice)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	response := ToStopLossOrderResponse(order)
+	response := ToStopOrderResponse(order)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-func (r *StopLossRoutes) ListStopLoss(w http.ResponseWriter, req *http.Request) {
+func (r *StopOrderRoutes) ListStopOrders(w http.ResponseWriter, req *http.Request) {
 	orders, err := r.service.GetActiveOrders()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	response := lo.Map(orders, func(order *entities.StopLossOrder, _ int) StopLossOrderResponse {
-		return ToStopLossOrderResponse(order)
+	response := lo.Map(orders, func(order *entities.StopOrder, _ int) StopOrderResponse {
+		return ToStopOrderResponse(order)
 	})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-func (r *StopLossRoutes) GetStopLoss(w http.ResponseWriter, req *http.Request) {
+func (r *StopOrderRoutes) GetStopOrder(w http.ResponseWriter, req *http.Request) {
 	id := chi.URLParam(req, "id")
 
 	orderID, err := uuid.Parse(id)
@@ -128,12 +139,12 @@ func (r *StopLossRoutes) GetStopLoss(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	response := ToStopLossOrderResponse(order)
+	response := ToStopOrderResponse(order)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-func (r *StopLossRoutes) UpdateStopLoss(w http.ResponseWriter, req *http.Request) {
+func (r *StopOrderRoutes) UpdateStopOrder(w http.ResponseWriter, req *http.Request) {
 	id := chi.URLParam(req, "id")
 
 	orderID, err := uuid.Parse(id)
@@ -142,29 +153,42 @@ func (r *StopLossRoutes) UpdateStopLoss(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	var request UpdateStopLossRequest
+	var request UpdateStopOrderRequest
 	if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	threshold, err := entities.NewContractPrice(request.Threshold)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	var triggerPrice *entities.ContractPrice
+	if request.TriggerPrice != nil {
+		tp, err := entities.NewContractPrice(*request.TriggerPrice)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return // Don't forget to return after writing error
+		}
+		triggerPrice = &tp
 	}
 
-	order, err := r.service.UpdateOrder(orderID, threshold)
+	var limitPrice *entities.ContractPrice
+	if request.LimitPrice != nil {
+		*limitPrice, err = entities.NewContractPrice(*request.LimitPrice)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+	}
+
+	order, err := r.service.UpdateOrder(orderID, triggerPrice, limitPrice)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	response := ToStopLossOrderResponse(order)
+	response := ToStopOrderResponse(order)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-func (r *StopLossRoutes) CancelStopLoss(w http.ResponseWriter, req *http.Request) {
+func (r *StopOrderRoutes) CancelStopOrder(w http.ResponseWriter, req *http.Request) {
 	id := chi.URLParam(req, "id")
 
 	orderID, err := uuid.Parse(id)
@@ -184,7 +208,7 @@ func (r *StopLossRoutes) CancelStopLoss(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	response := ToStopLossOrderResponse(order)
+	response := ToStopOrderResponse(order)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }

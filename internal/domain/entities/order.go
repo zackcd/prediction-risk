@@ -7,15 +7,13 @@ import (
 	"github.com/google/uuid"
 )
 
+type OrderID uuid.UUID
+
 type OrderType string
 
-func (t OrderType) String() string {
-	return string(t)
-}
-
 const (
-	OrderTypeStopLoss   OrderType = "STOP_LOSS"
-	OrderTypeTakeProfit OrderType = "TAKE_PROFIT"
+	OrderTypeStop      OrderType = "STOP"
+	OrderTypeStopLimit OrderType = "STOP_LIMIT"
 )
 
 // OrderStatus represents the current state of an order
@@ -29,6 +27,15 @@ func (s OrderStatus) String() string {
 func (s OrderStatus) IsValid() bool {
 	switch s {
 	case OrderStatusActive, OrderStatusTriggered, OrderStatusCancelled, OrderStatusExpired:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s OrderStatus) IsTerminal() bool {
+	switch s {
+	case OrderStatusTriggered, OrderStatusCancelled, OrderStatusExpired:
 		return true
 	default:
 		return false
@@ -57,26 +64,23 @@ const (
 
 type Order interface {
 	ID() uuid.UUID
-	Type() OrderType
+	OrderType() OrderType
 	Ticker() string
 	Side() Side
-	TriggerPrice() ContractPrice
 	Status() OrderStatus
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
-	UpdateTriggerPrice(ContractPrice)
 	UpdateStatus(OrderStatus) error
 }
 
 type order struct {
-	id           uuid.UUID
-	orderType    OrderType
-	ticker       string
-	side         Side
-	triggerPrice ContractPrice
-	status       OrderStatus
-	createdAt    time.Time
-	updatedAt    time.Time
+	id        uuid.UUID
+	orderType OrderType
+	ticker    string
+	side      Side
+	status    OrderStatus
+	createdAt time.Time
+	updatedAt time.Time
 }
 
 // newBaseOrder creates a new baseOrder with common initialization
@@ -84,36 +88,27 @@ func newOrder(
 	orderType OrderType,
 	ticker string,
 	side Side,
-	triggerPrice ContractPrice,
 ) order {
 	now := time.Now().UTC()
 	return order{
-		id:           uuid.New(),
-		orderType:    orderType,
-		ticker:       ticker,
-		side:         side,
-		triggerPrice: triggerPrice,
-		status:       OrderStatusActive,
-		createdAt:    now,
-		updatedAt:    now,
+		id:        uuid.New(),
+		orderType: orderType,
+		ticker:    ticker,
+		side:      side,
+		status:    OrderStatusActive,
+		createdAt: now,
+		updatedAt: now,
 	}
 }
 
 // Implement getters for the base order
-func (o *order) ID() uuid.UUID               { return o.id }
-func (o *order) Type() OrderType             { return o.orderType }
-func (o *order) Ticker() string              { return o.ticker }
-func (o *order) Side() Side                  { return o.side }
-func (o *order) TriggerPrice() ContractPrice { return o.triggerPrice }
-func (o *order) Status() OrderStatus         { return o.status }
-func (o *order) CreatedAt() time.Time        { return o.createdAt }
-func (o *order) UpdatedAt() time.Time        { return o.updatedAt }
-
-// UpdateTriggerPrice updates the trigger price and timestamp
-func (o *order) UpdateTriggerPrice(triggerPrice ContractPrice) {
-	o.triggerPrice = triggerPrice
-	o.updateTimestamp()
-}
+func (o *order) ID() uuid.UUID        { return o.id }
+func (o *order) OrderType() OrderType { return o.orderType }
+func (o *order) Ticker() string       { return o.ticker }
+func (o *order) Side() Side           { return o.side }
+func (o *order) Status() OrderStatus  { return o.status }
+func (o *order) CreatedAt() time.Time { return o.createdAt }
+func (o *order) UpdatedAt() time.Time { return o.updatedAt }
 
 func (o *order) UpdateStatus(status OrderStatus) error {
 	if !status.IsValid() {

@@ -35,16 +35,17 @@ func main() {
 		config.Kalshi.APIKeyID,
 		kalshiPrivateKey,
 	)
-	stopLossRepo := inmemory.NewStopLossRepoInMemory()
+	stopOrderRepo := inmemory.NewStopOrderRepoInMemory()
 
 	// Setup internal services
 	exchangeService := services.NewExchangeService(kalshiClient.Market, kalshiClient.Portfolio)
-	stopLossService := services.NewStopLossService(stopLossRepo, exchangeService)
-	stopLossMonitor := services.NewStopLossMonitor(stopLossService, exchangeService, 5*time.Second)
+	orderExecutor := services.NewOrderExecutor(exchangeService)
+	stopOrderService := services.NewStopOrderService(stopOrderRepo, orderExecutor)
+	orderMonitor := services.NewOrderMonitor(stopOrderService, exchangeService, 5*time.Second)
 
 	// Start background processes monitoring
-	stopLossMonitor.Start(config.IsDryRun)
-	defer stopLossMonitor.Stop()
+	orderMonitor.Start(config.IsDryRun)
+	defer orderMonitor.Stop()
 
 	// Setup router
 	router := chi.NewRouter()
@@ -52,8 +53,8 @@ func main() {
 	router.Use(middleware.Recoverer)
 
 	// Mount routes
-	stopLossRoutes := api.NewStopLossRoutes(stopLossService)
-	stopLossRoutes.Register(router)
+	stopOrderRoutes := api.NewStopOrderRoutes(stopOrderService)
+	stopOrderRoutes.Register(router)
 
 	// Start server
 	srv := &http.Server{

@@ -9,28 +9,28 @@ import (
 )
 
 type OrderMonitor struct {
-	stopLossService StopLossOrderService
-	exchange        ExchangeService
-	interval        time.Duration
-	done            chan struct{}
+	stopOrderService StopOrderService
+	exchange         ExchangeService
+	interval         time.Duration
+	done             chan struct{}
 }
 
-func NewStopLossMonitor(
-	stopLossService StopLossOrderService,
+func NewOrderMonitor(
+	stopOrderService StopOrderService,
 	exchange ExchangeService,
 	interval time.Duration,
 ) *OrderMonitor {
-	log.Printf("Initializing StopLossMonitor with interval: %v", interval)
+	log.Printf("Initializing OrderMonitor with interval: %v", interval)
 	return &OrderMonitor{
-		stopLossService: stopLossService,
-		exchange:        exchange,
-		interval:        interval,
-		done:            make(chan struct{}),
+		stopOrderService: stopOrderService,
+		exchange:         exchange,
+		interval:         interval,
+		done:             make(chan struct{}),
 	}
 }
 
 func (m *OrderMonitor) Start(isDryRun bool) {
-	log.Printf("Starting StopLossMonitor (dry run: %v)", isDryRun)
+	log.Printf("Starting OrderMonitor (dry run: %v)", isDryRun)
 	go func() {
 		ticker := time.NewTicker(m.interval)
 		defer ticker.Stop()
@@ -38,10 +38,10 @@ func (m *OrderMonitor) Start(isDryRun bool) {
 		for {
 			select {
 			case <-m.done:
-				log.Println("StopLossMonitor stopping")
+				log.Println("OrderMonitor stopping")
 				return
 			case <-ticker.C:
-				log.Println("Running stop loss check...")
+				log.Println("Running order check...")
 				if err := m.checkOrders(isDryRun); err != nil {
 					log.Printf("ERROR checking orders: %v", err)
 				}
@@ -51,16 +51,16 @@ func (m *OrderMonitor) Start(isDryRun bool) {
 }
 
 func (m *OrderMonitor) Stop() {
-	log.Println("Stopping StopLossMonitor...")
+	log.Println("Stopping OrderMonitor...")
 	close(m.done)
 }
 
 func (m *OrderMonitor) checkOrders(isDryRun bool) error {
-	activeOrders, err := m.stopLossService.GetActiveOrders()
+	activeOrders, err := m.stopOrderService.GetActiveOrders()
 	if err != nil {
 		return fmt.Errorf("getting active orders: %w", err)
 	}
-	log.Printf("Found %d active stop loss orders", len(activeOrders))
+	log.Printf("Found %d active stop orders", len(activeOrders))
 
 	for _, order := range activeOrders {
 		log.Printf("Checking order %s (ticker: %s, side: %s, threshold: %d)...",
@@ -96,8 +96,8 @@ func (m *OrderMonitor) checkOrders(isDryRun bool) error {
 		log.Printf("Order %s should execute: %v", order.ID(), shouldExecute)
 
 		if shouldExecute {
-			log.Printf("Executing stop loss order %s (dry run: %v)...", order.ID(), isDryRun)
-			_, err := m.stopLossService.ExecuteOrder(order.ID(), isDryRun)
+			log.Printf("Executing stop order %s (dry run: %v)...", order.ID(), isDryRun)
+			_, err := m.stopOrderService.ExecuteOrder(order.ID(), isDryRun)
 			if err != nil {
 				log.Printf("ERROR executing order %s: %v", order.ID(), err)
 			} else {
@@ -109,7 +109,7 @@ func (m *OrderMonitor) checkOrders(isDryRun bool) error {
 	return nil
 }
 
-func (m *OrderMonitor) shouldExecute(order *entities.StopLossOrder, market *kalshi.Market) bool {
+func (m *OrderMonitor) shouldExecute(order *entities.StopOrder, market *kalshi.Market) bool {
 	var bid int
 	if order.Side() == entities.SideYes {
 		bid = market.YesBid
@@ -118,7 +118,7 @@ func (m *OrderMonitor) shouldExecute(order *entities.StopLossOrder, market *kals
 	}
 
 	if bid < order.TriggerPrice().Value() {
-		log.Printf("%s stop loss triggered - bid (%d) below threshold (%d)",
+		log.Printf("%s stop triggered - bid (%d) below threshold (%d)",
 			order.Side(), bid, order.TriggerPrice().Value())
 		return true
 	}

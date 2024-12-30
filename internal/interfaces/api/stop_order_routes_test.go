@@ -7,92 +7,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"prediction-risk/internal/domain/entities"
+	"prediction-risk/internal/domain/services/mocks"
 	"testing"
 
 	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
-type MockStopLossService struct {
-	mock.Mock
-}
-
-func (m *MockStopLossService) CreateOrder(
-	ticker string,
-	side entities.Side,
-	threshold entities.ContractPrice,
-) (*entities.StopLossOrder, error) {
-	args := m.Called(ticker, side, threshold)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*entities.StopLossOrder), args.Error(1)
-}
-
-func (m *MockStopLossService) GetOrder(
-	stopLossOrderId uuid.UUID,
-) (*entities.StopLossOrder, error) {
-	args := m.Called(stopLossOrderId)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*entities.StopLossOrder), args.Error(1)
-}
-
-func (m *MockStopLossService) UpdateOrder(
-	stopLossOrderId uuid.UUID,
-	threshold entities.ContractPrice,
-) (
-	*entities.StopLossOrder,
-	error,
-) {
-	args := m.Called(stopLossOrderId, threshold)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*entities.StopLossOrder), args.Error(1)
-}
-
-func (m *MockStopLossService) CancelOrder(
-	stopLossOrderId uuid.UUID,
-) (
-	*entities.StopLossOrder,
-	error,
-) {
-	args := m.Called(stopLossOrderId)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*entities.StopLossOrder), args.Error(1)
-}
-
-func (m *MockStopLossService) GetActiveOrders() ([]*entities.StopLossOrder, error) {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*entities.StopLossOrder), args.Error(1)
-}
-
-func (m *MockStopLossService) ExecuteOrder(
-	stopLossOrderId uuid.UUID,
-	isDryRun bool,
-) (
-	*entities.StopLossOrder,
-	error,
-) {
-	args := m.Called(stopLossOrderId)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*entities.StopLossOrder), args.Error(1)
-}
-
-func setupTest() (*chi.Mux, *MockStopLossService) {
-	mockService := new(MockStopLossService)
-	routes := NewStopLossRoutes(mockService)
+func setupTest() (*chi.Mux, *mocks.MockStopOrderService) {
+	mockService := new(mocks.MockStopOrderService)
+	routes := NewStopOrderRoutes(mockService)
 
 	router := chi.NewRouter()
 	routes.Register(router)
@@ -100,8 +25,8 @@ func setupTest() (*chi.Mux, *MockStopLossService) {
 	return router, mockService
 }
 
-func TestStopLossRoutes(t *testing.T) {
-	t.Run("CreateStopLoss", func(t *testing.T) {
+func TestStopOrderRoutes(t *testing.T) {
+	t.Run("CreateStopOrder", func(t *testing.T) {
 		t.Run("successfully creates order", func(t *testing.T) {
 			// Arrange
 			router, mockService := setupTest()
@@ -110,34 +35,37 @@ func TestStopLossRoutes(t *testing.T) {
 			assert.NoError(t, err)
 
 			// Create a properly initialized test order
-			expectedOrder := entities.NewStopLossOrder(
+			expectedOrder := entities.NewStopOrder(
 				"AAPL-2024",
 				entities.SideYes,
 				threshold,
+				nil,
 			)
 
 			mockService.On("CreateOrder",
 				"AAPL-2024",
 				entities.SideYes,
 				threshold,
+				(*entities.ContractPrice)(nil),
 			).Return(expectedOrder, nil)
 
-			request := CreateStopLossRequest{
-				Ticker:    "AAPL-2024",
-				Side:      "YES",
-				Threshold: 50,
+			request := CreateStopOrderRequest{
+				Ticker:       "AAPL-2024",
+				Side:         "YES",
+				TriggerPrice: 50,
+				LimitPrice:   nil,
 			}
 			body, _ := json.Marshal(request)
 
 			// Act
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodPost, "/api/stop-loss", bytes.NewReader(body))
+			req := httptest.NewRequest(http.MethodPost, "/api/stop-orders", bytes.NewReader(body))
 			router.ServeHTTP(rec, req)
 
 			// Assert
 			assert.Equal(t, http.StatusOK, rec.Code)
 
-			var response StopLossOrderResponse // Change to your API response type
+			var response StopOrderResponse // Change to your API response type
 			err = json.NewDecoder(rec.Body).Decode(&response)
 			assert.NoError(t, err)
 			assert.Equal(t, expectedOrder.ID().String(), response.ID)
@@ -152,22 +80,22 @@ func TestStopLossRoutes(t *testing.T) {
 		t.Run("returns error for invalid side", func(t *testing.T) {
 			router, _ := setupTest()
 
-			request := CreateStopLossRequest{
-				Ticker:    "AAPL-2024",
-				Side:      "INVALID",
-				Threshold: 50,
+			request := CreateStopOrderRequest{
+				Ticker:       "AAPL-2024",
+				Side:         "INVALID",
+				TriggerPrice: 50,
 			}
 			body, _ := json.Marshal(request)
 
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodPost, "/api/stop-loss", bytes.NewReader(body))
+			req := httptest.NewRequest(http.MethodPost, "/api/stop-orders", bytes.NewReader(body))
 			router.ServeHTTP(rec, req)
 
 			assert.Equal(t, http.StatusBadRequest, rec.Code)
 		})
 	})
 
-	t.Run("GetStopLoss", func(t *testing.T) {
+	t.Run("GetStopOrder", func(t *testing.T) {
 		t.Run("successfully gets order", func(t *testing.T) {
 			// Arrange
 			router, mockService := setupTest()
@@ -175,22 +103,23 @@ func TestStopLossRoutes(t *testing.T) {
 			threshold, err := entities.NewContractPrice(50)
 			assert.NoError(t, err)
 			// Create a properly initialized test order
-			expectedOrder := entities.NewStopLossOrder(
+			expectedOrder := entities.NewStopOrder(
 				"AAPL-2024",
 				entities.SideYes,
 				threshold,
+				nil,
 			)
 			mockService.On("GetOrder", expectedOrder.ID()).Return(expectedOrder, nil)
 
 			// Act
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/stop-loss/%s", expectedOrder.ID().String()), nil)
+			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/stop-orders/%s", expectedOrder.ID().String()), nil)
 			router.ServeHTTP(rec, req)
 
 			// Assert
 			assert.Equal(t, http.StatusOK, rec.Code)
 
-			var response StopLossOrderResponse
+			var response StopOrderResponse
 			err = json.NewDecoder(rec.Body).Decode(&response)
 			assert.NoError(t, err)
 
@@ -211,14 +140,14 @@ func TestStopLossRoutes(t *testing.T) {
 			mockService.On("GetOrder", orderID).Return(nil, nil)
 
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/stop-loss/%s", orderID), nil)
+			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/stop-orders/%s", orderID), nil)
 			router.ServeHTTP(rec, req)
 
 			assert.Equal(t, http.StatusNotFound, rec.Code)
 		})
 	})
 
-	t.Run("ListStopLoss", func(t *testing.T) {
+	t.Run("ListStopOrder", func(t *testing.T) {
 		t.Run("successfully lists active orders", func(t *testing.T) {
 			// Arrange
 			router, mockService := setupTest()
@@ -226,21 +155,21 @@ func TestStopLossRoutes(t *testing.T) {
 			threshold, err := entities.NewContractPrice(50)
 			assert.NoError(t, err)
 
-			expectedOrder1 := entities.NewStopLossOrder("AAPL-2024", entities.SideYes, threshold)
-			expectedOrder2 := entities.NewStopLossOrder("MSFT-2024", entities.SideNo, threshold)
+			expectedOrder1 := entities.NewStopOrder("AAPL-2024", entities.SideYes, threshold, nil)
+			expectedOrder2 := entities.NewStopOrder("MSFT-2024", entities.SideNo, threshold, nil)
 
-			expectedOrders := []*entities.StopLossOrder{expectedOrder1, expectedOrder2}
+			expectedOrders := []*entities.StopOrder{expectedOrder1, expectedOrder2}
 			mockService.On("GetActiveOrders").Return(expectedOrders, nil)
 
 			// Act
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, "/api/stop-loss", nil)
+			req := httptest.NewRequest(http.MethodGet, "/api/stop-orders", nil)
 			router.ServeHTTP(rec, req)
 
 			// Assert
 			assert.Equal(t, http.StatusOK, rec.Code)
 
-			var response []StopLossOrderResponse
+			var response []StopOrderResponse
 			err = json.NewDecoder(rec.Body).Decode(&response)
 			assert.NoError(t, err)
 			assert.Len(t, response, 2)
@@ -265,14 +194,14 @@ func TestStopLossRoutes(t *testing.T) {
 			mockService.On("GetActiveOrders").Return(nil, fmt.Errorf("database error"))
 
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, "/api/stop-loss", nil)
+			req := httptest.NewRequest(http.MethodGet, "/api/stop-orders", nil)
 			router.ServeHTTP(rec, req)
 
 			assert.Equal(t, http.StatusInternalServerError, rec.Code)
 		})
 	})
 
-	t.Run("UpdateStopLoss", func(t *testing.T) {
+	t.Run("UpdateStopOrder", func(t *testing.T) {
 		t.Run("successfully updates order", func(t *testing.T) {
 			// Arrange
 			router, mockService := setupTest()
@@ -282,14 +211,15 @@ func TestStopLossRoutes(t *testing.T) {
 			newThreshold, err := entities.NewContractPrice(60)
 			assert.NoError(t, err)
 
-			existingOrder := entities.NewStopLossOrder("AAPL-2024", entities.SideYes, initialThreshold)
+			existingOrder := entities.NewStopOrder("AAPL-2024", entities.SideYes, initialThreshold, nil)
 			updatedOrder := existingOrder
-			updatedOrder.UpdateTriggerPrice(newThreshold)
+			updatedOrder.SetTriggerPrice(newThreshold)
 
-			mockService.On("UpdateOrder", existingOrder.ID(), newThreshold).Return(updatedOrder, nil)
+			mockService.On("UpdateOrder", existingOrder.ID(), &newThreshold, (*entities.ContractPrice)(nil)).Return(updatedOrder, nil)
 
-			request := UpdateStopLossRequest{
-				Threshold: 60,
+			price := 60
+			request := UpdateStopOrderRequest{
+				TriggerPrice: &price,
 			}
 			body, _ := json.Marshal(request)
 
@@ -297,7 +227,7 @@ func TestStopLossRoutes(t *testing.T) {
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(
 				http.MethodPatch,
-				fmt.Sprintf("/api/stop-loss/%s", existingOrder.ID().String()),
+				fmt.Sprintf("/api/stop-orders/%s", existingOrder.ID().String()),
 				bytes.NewReader(body),
 			)
 			router.ServeHTTP(rec, req)
@@ -305,7 +235,7 @@ func TestStopLossRoutes(t *testing.T) {
 			// Assert
 			assert.Equal(t, http.StatusOK, rec.Code)
 
-			var response StopLossOrderResponse
+			var response StopOrderResponse
 			err = json.NewDecoder(rec.Body).Decode(&response)
 			assert.NoError(t, err)
 			assert.Equal(t, updatedOrder.ID().String(), response.ID)
@@ -319,13 +249,9 @@ func TestStopLossRoutes(t *testing.T) {
 			router, mockService := setupTest()
 			orderId := uuid.New()
 
-			// Mock the service call - it should return an error for invalid threshold
-			invalidThreshold, _ := entities.NewContractPrice(101) // This might fail, depending on your validation
-			mockService.On("UpdateOrder", orderId, invalidThreshold).
-				Return(nil, fmt.Errorf("threshold must be between 0 and 100"))
-
-			request := UpdateStopLossRequest{
-				Threshold: 101,
+			price := 101
+			request := UpdateStopOrderRequest{
+				TriggerPrice: &price,
 			}
 			body, _ := json.Marshal(request)
 
@@ -333,7 +259,7 @@ func TestStopLossRoutes(t *testing.T) {
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(
 				http.MethodPatch,
-				fmt.Sprintf("/api/stop-loss/%s", orderId.String()),
+				fmt.Sprintf("/api/stop-orders/%s", orderId.String()),
 				bytes.NewReader(body),
 			)
 			req.Header.Set("Content-Type", "application/json")
@@ -345,7 +271,7 @@ func TestStopLossRoutes(t *testing.T) {
 		})
 	})
 
-	t.Run("CancelStopLoss", func(t *testing.T) {
+	t.Run("CancelStopOrder", func(t *testing.T) {
 		t.Run("successfully cancels order", func(t *testing.T) {
 			// Arrange
 			router, mockService := setupTest()
@@ -353,8 +279,8 @@ func TestStopLossRoutes(t *testing.T) {
 			threshold, err := entities.NewContractPrice(50)
 			assert.NoError(t, err)
 
-			existingOrder := entities.NewStopLossOrder("AAPL-2024", entities.SideYes, threshold)
-			cancelledOrder := entities.NewStopLossOrder("AAPL-2024", entities.SideYes, threshold)
+			existingOrder := entities.NewStopOrder("AAPL-2024", entities.SideYes, threshold, nil)
+			cancelledOrder := entities.NewStopOrder("AAPL-2024", entities.SideYes, threshold, nil)
 			cancelledOrder.UpdateStatus(entities.OrderStatusCancelled)
 
 			mockService.On("CancelOrder", existingOrder.ID()).Return(cancelledOrder, nil)
@@ -363,7 +289,7 @@ func TestStopLossRoutes(t *testing.T) {
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(
 				http.MethodDelete,
-				fmt.Sprintf("/api/stop-loss/%s", existingOrder.ID().String()),
+				fmt.Sprintf("/api/stop-orders/%s", existingOrder.ID().String()),
 				nil,
 			)
 			router.ServeHTTP(rec, req)
@@ -371,7 +297,7 @@ func TestStopLossRoutes(t *testing.T) {
 			// Assert
 			assert.Equal(t, http.StatusOK, rec.Code)
 
-			var response StopLossOrderResponse
+			var response StopOrderResponse
 			err = json.NewDecoder(rec.Body).Decode(&response)
 			assert.NoError(t, err)
 			assert.Equal(t, cancelledOrder.ID().String(), response.ID)
@@ -384,12 +310,12 @@ func TestStopLossRoutes(t *testing.T) {
 			router, mockService := setupTest()
 
 			nonExistentID := uuid.New()
-			mockService.On("CancelOrder", nonExistentID).Return(nil, entities.NewErrNotFound("StopLossOrder", nonExistentID.String()))
+			mockService.On("CancelOrder", nonExistentID).Return(nil, entities.NewErrNotFound("StopOrder", nonExistentID.String()))
 
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(
 				http.MethodDelete,
-				fmt.Sprintf("/api/stop-loss/%s", nonExistentID.String()),
+				fmt.Sprintf("/api/stop-orders/%s", nonExistentID.String()),
 				nil,
 			)
 			router.ServeHTTP(rec, req)

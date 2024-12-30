@@ -11,18 +11,18 @@ import (
 )
 
 // Test suite
-func TestStopLossService(t *testing.T) {
+func TestStopOrderService(t *testing.T) {
 	t.Run("GetOrder", func(t *testing.T) {
 		t.Run("returns order when found", func(t *testing.T) {
 			// Arrange
-			mockRepo := new(mocks.MockStopLossOrderRepo)
+			mockRepo := new(mocks.MockStopOrderRepo)
 			mockExecutor := new(mocks.MockOrderExecutor)
-			service := NewStopLossService(mockRepo, mockExecutor)
+			service := NewStopOrderService(mockRepo, mockExecutor)
 
 			orderID := uuid.New()
 			threshold, err := entities.NewContractPrice(100)
 			assert.NoError(t, err)
-			expectedOrder := entities.NewStopLossOrder("AAPL", entities.SideYes, threshold)
+			expectedOrder := entities.NewStopOrder("AAPL", entities.SideYes, threshold, nil)
 
 			mockRepo.On("GetByID", orderID).Return(expectedOrder, nil)
 
@@ -36,9 +36,9 @@ func TestStopLossService(t *testing.T) {
 		})
 
 		t.Run("returns nil when not found", func(t *testing.T) {
-			mockRepo := new(mocks.MockStopLossOrderRepo)
+			mockRepo := new(mocks.MockStopOrderRepo)
 			mockExecutor := new(mocks.MockOrderExecutor)
-			service := NewStopLossService(mockRepo, mockExecutor)
+			service := NewStopOrderService(mockRepo, mockExecutor)
 
 			orderID := uuid.New()
 			mockRepo.On("GetByID", orderID).Return(nil, nil)
@@ -53,21 +53,21 @@ func TestStopLossService(t *testing.T) {
 
 	t.Run("CreateOrder", func(t *testing.T) {
 		t.Run("creates order successfully", func(t *testing.T) {
-			mockRepo := new(mocks.MockStopLossOrderRepo)
+			mockRepo := new(mocks.MockStopOrderRepo)
 			mockExecutor := new(mocks.MockOrderExecutor)
-			service := NewStopLossService(mockRepo, mockExecutor)
+			service := NewStopOrderService(mockRepo, mockExecutor)
 
 			ticker := "AAPL"
 			threshold, err := entities.NewContractPrice(100)
 			assert.NoError(t, err)
 
-			mockRepo.On("Persist", mock.MatchedBy(func(order *entities.StopLossOrder) bool {
+			mockRepo.On("Persist", mock.MatchedBy(func(order *entities.StopOrder) bool {
 				return order.Ticker() == ticker &&
 					order.TriggerPrice() == threshold &&
 					order.Status() == entities.OrderStatusActive
 			})).Return(nil)
 
-			order, err := service.CreateOrder(ticker, entities.SideYes, threshold)
+			order, err := service.CreateOrder(ticker, entities.SideYes, threshold, nil)
 
 			assert.NoError(t, err)
 			assert.Equal(t, ticker, order.Ticker())
@@ -79,9 +79,9 @@ func TestStopLossService(t *testing.T) {
 
 	t.Run("UpdateOrder", func(t *testing.T) {
 		t.Run("updates order successfully", func(t *testing.T) {
-			mockRepo := new(mocks.MockStopLossOrderRepo)
+			mockRepo := new(mocks.MockStopOrderRepo)
 			mockExecutor := new(mocks.MockOrderExecutor)
-			service := NewStopLossService(mockRepo, mockExecutor)
+			service := NewStopOrderService(mockRepo, mockExecutor)
 
 			orderID := uuid.New()
 			threshold, err := entities.NewContractPrice(80)
@@ -89,14 +89,14 @@ func TestStopLossService(t *testing.T) {
 
 			newThreshold, err := entities.NewContractPrice(100)
 			assert.NoError(t, err)
-			existingOrder := entities.NewStopLossOrder("AAPL", entities.SideYes, threshold)
+			existingOrder := entities.NewStopOrder("AAPL", entities.SideYes, threshold, nil)
 
 			mockRepo.On("GetByID", orderID).Return(existingOrder, nil)
-			mockRepo.On("Persist", mock.MatchedBy(func(order *entities.StopLossOrder) bool {
+			mockRepo.On("Persist", mock.MatchedBy(func(order *entities.StopOrder) bool {
 				return order.TriggerPrice() == newThreshold
 			})).Return(nil)
 
-			order, err := service.UpdateOrder(orderID, newThreshold)
+			order, err := service.UpdateOrder(orderID, &newThreshold, nil)
 
 			assert.NoError(t, err)
 			assert.Equal(t, newThreshold, order.TriggerPrice())
@@ -106,17 +106,17 @@ func TestStopLossService(t *testing.T) {
 
 	t.Run("CancelOrder", func(t *testing.T) {
 		t.Run("cancels active order successfully", func(t *testing.T) {
-			mockRepo := new(mocks.MockStopLossOrderRepo)
+			mockRepo := new(mocks.MockStopOrderRepo)
 			mockExecutor := new(mocks.MockOrderExecutor)
-			service := NewStopLossService(mockRepo, mockExecutor)
+			service := NewStopOrderService(mockRepo, mockExecutor)
 
 			orderID := uuid.New()
 			threshold, err := entities.NewContractPrice(100)
 			assert.NoError(t, err)
-			existingOrder := entities.NewStopLossOrder("AAPL", entities.SideYes, threshold)
+			existingOrder := entities.NewStopOrder("AAPL", entities.SideYes, threshold, nil)
 
 			mockRepo.On("GetByID", orderID).Return(existingOrder, nil)
-			mockRepo.On("Persist", mock.MatchedBy(func(order *entities.StopLossOrder) bool {
+			mockRepo.On("Persist", mock.MatchedBy(func(order *entities.StopOrder) bool {
 				return order.Status() == entities.OrderStatusCancelled
 			})).Return(nil)
 
@@ -128,12 +128,12 @@ func TestStopLossService(t *testing.T) {
 		})
 
 		t.Run("fails when order not found", func(t *testing.T) {
-			mockRepo := new(mocks.MockStopLossOrderRepo)
+			mockRepo := new(mocks.MockStopOrderRepo)
 			mockExecutor := new(mocks.MockOrderExecutor)
-			service := NewStopLossService(mockRepo, mockExecutor)
+			service := NewStopOrderService(mockRepo, mockExecutor)
 
 			orderID := uuid.New()
-			errResult := entities.NewErrNotFound("StopLossOrderId", orderID.String())
+			errResult := entities.NewErrNotFound("OrderId", orderID.String())
 			mockRepo.On("GetByID", orderID).Return(nil, errResult)
 
 			order, err := service.CancelOrder(orderID)
@@ -145,14 +145,14 @@ func TestStopLossService(t *testing.T) {
 		})
 
 		t.Run("fails when order already cancelled", func(t *testing.T) {
-			mockRepo := new(mocks.MockStopLossOrderRepo)
+			mockRepo := new(mocks.MockStopOrderRepo)
 			mockExecutor := new(mocks.MockOrderExecutor)
-			service := NewStopLossService(mockRepo, mockExecutor)
+			service := NewStopOrderService(mockRepo, mockExecutor)
 
 			orderID := uuid.New()
 			threshold, err := entities.NewContractPrice(100)
 			assert.NoError(t, err)
-			existingOrder := entities.NewStopLossOrder("AAPL", entities.SideYes, threshold)
+			existingOrder := entities.NewStopOrder("AAPL", entities.SideYes, threshold, nil)
 			existingOrder.UpdateStatus(entities.OrderStatusCancelled)
 
 			mockRepo.On("GetByID", orderID).Return(existingOrder, nil)

@@ -21,13 +21,25 @@ func NewOrderExecutor(exchange ExchangeService) *orderExecutor {
 	return &orderExecutor{exchange: exchange}
 }
 
+func (e *orderExecutor) ExecuteOrder(order entities.Order, isDryRun bool) error {
+	log.Printf("Executing order %s", order.ID())
+
+	if !isDryRun {
+		if err := e.executeOrderOnExchange(order); err != nil {
+			return fmt.Errorf("executing order on exchange: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func (e *orderExecutor) executeOrderOnExchange(order entities.Order) error {
 	// Match on order type to determine execution flow
-	switch order.Type() {
-	case entities.OrderTypeStopLoss, entities.OrderTypeTakeProfit:
+	switch order.OrderType() {
+	case entities.OrderTypeStop, entities.OrderTypeStopLimit:
 		return e.executeClosePosition(order)
 	default:
-		return fmt.Errorf("unsupported order type: %s", order.Type())
+		return fmt.Errorf("unsupported order type: %s", order.OrderType())
 	}
 }
 

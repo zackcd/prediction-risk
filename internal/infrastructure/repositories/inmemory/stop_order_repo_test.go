@@ -9,14 +9,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStopLossRepoInMemory(t *testing.T) {
+func TestStopOrderRepoInMemory(t *testing.T) {
 	t.Run("GetByID", func(t *testing.T) {
 		t.Run("returns order when found", func(t *testing.T) {
 			// Arrange
-			repo := NewStopLossRepoInMemory()
+			repo := NewStopOrderRepoInMemory()
 			threshold, err := entities.NewContractPrice(20)
 			require.NoError(t, err)
-			order := entities.NewStopLossOrder("FOO", entities.SideYes, threshold)
+			order := entities.NewStopOrder("FOO", entities.SideYes, threshold, nil)
 			require.NoError(t, repo.Persist(order), "Failed to persist order")
 
 			// Act
@@ -32,14 +32,14 @@ func TestStopLossRepoInMemory(t *testing.T) {
 
 		t.Run("returns error ErrNotFound when not found", func(t *testing.T) {
 			// Arrange
-			repo := NewStopLossRepoInMemory()
+			repo := NewStopOrderRepoInMemory()
 			id := uuid.New()
 
 			// Act
 			order, err := repo.GetByID(id)
 
 			expectedErr := &entities.ErrNotFound{
-				Entity: "StopLossOrder",
+				Entity: "StopOrder",
 				ID:     id.String(),
 			}
 
@@ -53,10 +53,10 @@ func TestStopLossRepoInMemory(t *testing.T) {
 	t.Run("Persist", func(t *testing.T) {
 		t.Run("successfully creates new order", func(t *testing.T) {
 			// Arrange
-			repo := NewStopLossRepoInMemory()
+			repo := NewStopOrderRepoInMemory()
 			threshold, err1 := entities.NewContractPrice(20)
 			require.NoError(t, err1)
-			order := entities.NewStopLossOrder("FOO", entities.SideYes, threshold)
+			order := entities.NewStopOrder("FOO", entities.SideYes, threshold, nil)
 
 			// Act
 			err := repo.Persist(order)
@@ -74,16 +74,16 @@ func TestStopLossRepoInMemory(t *testing.T) {
 
 		t.Run("successfully updates existing order", func(t *testing.T) {
 			// Arrange
-			repo := NewStopLossRepoInMemory()
+			repo := NewStopOrderRepoInMemory()
 			threshold, err := entities.NewContractPrice(20)
 			require.NoError(t, err)
-			order := entities.NewStopLossOrder("FOO", entities.SideYes, threshold)
+			order := entities.NewStopOrder("FOO", entities.SideYes, threshold, nil)
 			require.NoError(t, repo.Persist(order), "Failed to persist initial order")
 
 			// Act
 			newThreshold, err := entities.NewContractPrice(30)
 			require.NoError(t, err)
-			order.UpdateTriggerPrice(newThreshold)
+			order.SetTriggerPrice(newThreshold)
 			persistErr := repo.Persist(order)
 
 			// Assert
@@ -98,17 +98,17 @@ func TestStopLossRepoInMemory(t *testing.T) {
 
 		t.Run("updates preserve all fields", func(t *testing.T) {
 			// Arrange
-			repo := NewStopLossRepoInMemory()
+			repo := NewStopOrderRepoInMemory()
 			threshold, err := entities.NewContractPrice(20)
 			require.NoError(t, err)
-			order := entities.NewStopLossOrder("FOO", entities.SideYes, threshold)
+			order := entities.NewStopOrder("FOO", entities.SideYes, threshold, nil)
 			require.NoError(t, repo.Persist(order), "Failed to persist initial order")
 
 			// Act
 			originalTicker := order.Ticker()
 			newThreshold, err := entities.NewContractPrice(30)
 			require.NoError(t, err)
-			order.UpdateTriggerPrice(newThreshold)
+			order.SetTriggerPrice(newThreshold)
 			persistErr := repo.Persist(order)
 
 			// Assert
