@@ -11,8 +11,9 @@ func NewStopOrder(
 	side Side,
 	triggerPrice ContractPrice,
 	limitPrice *ContractPrice,
+	orderId *OrderID,
 ) *StopOrder {
-	order := newOrder(OrderTypeStop, ticker, side)
+	order := newOrder(OrderTypeStop, ticker, side, orderId)
 	return &StopOrder{
 		order,
 		triggerPrice,

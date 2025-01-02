@@ -13,6 +13,6 @@ func (o *LimitOrder) SetLimitPrice(limitPrice ContractPrice) {
 }
 
 type Limitable interface {
-	GetLimitPrice() ContractPrice
+	LimitPrice() ContractPrice
 	SetLimitPrice(ContractPrice)
 }

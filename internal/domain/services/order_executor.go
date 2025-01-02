@@ -36,7 +36,7 @@ func (e *orderExecutor) ExecuteOrder(order entities.Order, isDryRun bool) error 
 func (e *orderExecutor) executeOrderOnExchange(order entities.Order) error {
 	// Match on order type to determine execution flow
 	switch order.OrderType() {
-	case entities.OrderTypeStop, entities.OrderTypeStopLimit:
+	case entities.OrderTypeStop:
 		return e.executeClosePosition(order)
 	default:
 		return fmt.Errorf("unsupported order type: %s", order.OrderType())

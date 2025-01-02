@@ -17,7 +17,7 @@ func TestStopLossMonitor(t *testing.T) {
 		mockExchange := new(mocks.MockExchangeService)
 
 		threshold, _ := entities.NewContractPrice(60)
-		order := entities.NewStopOrder("MARKET-1", entities.SideYes, threshold, nil)
+		order := entities.NewStopOrder("MARKET-1", entities.SideYes, threshold, nil, nil)
 
 		market := &kalshi.Market{
 			Ticker: "MARKET-1",
@@ -46,7 +46,7 @@ func TestStopLossMonitor(t *testing.T) {
 		mockExchange := new(mocks.MockExchangeService)
 
 		threshold, _ := entities.NewContractPrice(60)
-		order := entities.NewStopOrder("MARKET-1", entities.SideNo, threshold, nil)
+		order := entities.NewStopOrder("MARKET-1", entities.SideNo, threshold, nil, nil)
 
 		market := &kalshi.Market{
 			Ticker: "MARKET-1",
@@ -75,7 +75,7 @@ func TestStopLossMonitor(t *testing.T) {
 		mockExchange := new(mocks.MockExchangeService)
 
 		threshold, _ := entities.NewContractPrice(60)
-		order := entities.NewStopOrder("MARKET-1", entities.SideYes, threshold, nil)
+		order := entities.NewStopOrder("MARKET-1", entities.SideYes, threshold, nil, nil)
 
 		market := &kalshi.Market{
 			Ticker: "MARKET-1",
@@ -104,7 +104,7 @@ func TestStopLossMonitor(t *testing.T) {
 		mockExchange := new(mocks.MockExchangeService)
 
 		threshold, _ := entities.NewContractPrice(60)
-		order := entities.NewStopOrder("MARKET-1", entities.SideYes, threshold, nil)
+		order := entities.NewStopOrder("MARKET-1", entities.SideYes, threshold, nil, nil)
 
 		mockStopOrder.On("GetActiveOrders").Return([]*entities.StopOrder{order}, nil)
 		mockExchange.On("GetMarket", "MARKET-1").Return(nil, assert.AnError)

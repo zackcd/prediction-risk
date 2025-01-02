@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:15
+    env_file: .envrc
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: ghcr.io/amacneil/dbmate
+    volumes:
+      - ./db/migrations:/db/migrations
+    env_file: .envrc
+    environment:
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable
+    command: up
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .envrc
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "${SERVER_PORT}:${SERVER_PORT}"
+
+volumes:
+  postgres_data:

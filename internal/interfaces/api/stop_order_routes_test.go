@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,6 +38,7 @@ func TestStopOrderRoutes(t *testing.T) {
 				"AAPL-2024",
 				entities.SideYes,
 				threshold,
+				nil,
 				nil,
 			)
 
@@ -108,6 +108,7 @@ func TestStopOrderRoutes(t *testing.T) {
 				entities.SideYes,
 				threshold,
 				nil,
+				nil,
 			)
 			mockService.On("GetOrder", expectedOrder.ID()).Return(expectedOrder, nil)
 
@@ -136,7 +137,7 @@ func TestStopOrderRoutes(t *testing.T) {
 		t.Run("returns 404 for non-existent order", func(t *testing.T) {
 			router, mockService := setupTest()
 
-			orderID := uuid.New()
+			orderID := entities.NewOrderID()
 			mockService.On("GetOrder", orderID).Return(nil, nil)
 
 			rec := httptest.NewRecorder()
@@ -155,8 +156,8 @@ func TestStopOrderRoutes(t *testing.T) {
 			threshold, err := entities.NewContractPrice(50)
 			assert.NoError(t, err)
 
-			expectedOrder1 := entities.NewStopOrder("AAPL-2024", entities.SideYes, threshold, nil)
-			expectedOrder2 := entities.NewStopOrder("MSFT-2024", entities.SideNo, threshold, nil)
+			expectedOrder1 := entities.NewStopOrder("AAPL-2024", entities.SideYes, threshold, nil, nil)
+			expectedOrder2 := entities.NewStopOrder("MSFT-2024", entities.SideNo, threshold, nil, nil)
 
 			expectedOrders := []*entities.StopOrder{expectedOrder1, expectedOrder2}
 			mockService.On("GetActiveOrders").Return(expectedOrders, nil)
@@ -211,7 +212,7 @@ func TestStopOrderRoutes(t *testing.T) {
 			newThreshold, err := entities.NewContractPrice(60)
 			assert.NoError(t, err)
 
-			existingOrder := entities.NewStopOrder("AAPL-2024", entities.SideYes, initialThreshold, nil)
+			existingOrder := entities.NewStopOrder("AAPL-2024", entities.SideYes, initialThreshold, nil, nil)
 			updatedOrder := existingOrder
 			updatedOrder.SetTriggerPrice(newThreshold)
 
@@ -247,7 +248,7 @@ func TestStopOrderRoutes(t *testing.T) {
 		t.Run("handles invalid threshold", func(t *testing.T) {
 			// Arrange
 			router, mockService := setupTest()
-			orderId := uuid.New()
+			orderId := entities.NewOrderID()
 
 			price := 101
 			request := UpdateStopOrderRequest{
@@ -279,8 +280,8 @@ func TestStopOrderRoutes(t *testing.T) {
 			threshold, err := entities.NewContractPrice(50)
 			assert.NoError(t, err)
 
-			existingOrder := entities.NewStopOrder("AAPL-2024", entities.SideYes, threshold, nil)
-			cancelledOrder := entities.NewStopOrder("AAPL-2024", entities.SideYes, threshold, nil)
+			existingOrder := entities.NewStopOrder("AAPL-2024", entities.SideYes, threshold, nil, nil)
+			cancelledOrder := entities.NewStopOrder("AAPL-2024", entities.SideYes, threshold, nil, nil)
 			cancelledOrder.UpdateStatus(entities.OrderStatusCancelled)
 
 			mockService.On("CancelOrder", existingOrder.ID()).Return(cancelledOrder, nil)
@@ -309,7 +310,7 @@ func TestStopOrderRoutes(t *testing.T) {
 		t.Run("handles non-existent order", func(t *testing.T) {
 			router, mockService := setupTest()
 
-			nonExistentID := uuid.New()
+			nonExistentID := entities.NewOrderID()
 			mockService.On("CancelOrder", nonExistentID).Return(nil, entities.NewErrNotFound("StopOrder", nonExistentID.String()))
 
 			rec := httptest.NewRecorder()

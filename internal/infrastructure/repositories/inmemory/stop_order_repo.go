@@ -3,23 +3,21 @@ package inmemory
 import (
 	"prediction-risk/internal/domain/entities"
 	"sync"
-
-	"github.com/google/uuid"
 )
 
 type StopOrderRepoInMemory struct {
-	data  map[uuid.UUID]*entities.StopOrder
+	data  map[entities.OrderID]*entities.StopOrder
 	mutex sync.RWMutex
 }
 
 func NewStopOrderRepoInMemory() *StopOrderRepoInMemory {
 	return &StopOrderRepoInMemory{
-		data: make(map[uuid.UUID]*entities.StopOrder),
+		data: make(map[entities.OrderID]*entities.StopOrder),
 	}
 }
 
 func (r *StopOrderRepoInMemory) GetByID(
-	id uuid.UUID,
+	orderId entities.OrderID,
 ) (
 	*entities.StopOrder,
 	error,
@@ -27,9 +25,9 @@ func (r *StopOrderRepoInMemory) GetByID(
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	order, isFound := r.data[id]
+	order, isFound := r.data[orderId]
 	if !isFound {
-		return nil, entities.NewErrNotFound("StopOrder", id.String())
+		return nil, entities.NewErrNotFound("StopOrder", orderId.String())
 	}
 
 	orderCopy := *order

@@ -4,7 +4,6 @@ import (
 	"prediction-risk/internal/domain/entities"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +15,7 @@ func TestStopOrderRepoInMemory(t *testing.T) {
 			repo := NewStopOrderRepoInMemory()
 			threshold, err := entities.NewContractPrice(20)
 			require.NoError(t, err)
-			order := entities.NewStopOrder("FOO", entities.SideYes, threshold, nil)
+			order := entities.NewStopOrder("FOO", entities.SideYes, threshold, nil, nil)
 			require.NoError(t, repo.Persist(order), "Failed to persist order")
 
 			// Act
@@ -33,7 +32,7 @@ func TestStopOrderRepoInMemory(t *testing.T) {
 		t.Run("returns error ErrNotFound when not found", func(t *testing.T) {
 			// Arrange
 			repo := NewStopOrderRepoInMemory()
-			id := uuid.New()
+			id := entities.NewOrderID()
 
 			// Act
 			order, err := repo.GetByID(id)
@@ -56,7 +55,7 @@ func TestStopOrderRepoInMemory(t *testing.T) {
 			repo := NewStopOrderRepoInMemory()
 			threshold, err1 := entities.NewContractPrice(20)
 			require.NoError(t, err1)
-			order := entities.NewStopOrder("FOO", entities.SideYes, threshold, nil)
+			order := entities.NewStopOrder("FOO", entities.SideYes, threshold, nil, nil)
 
 			// Act
 			err := repo.Persist(order)
@@ -77,7 +76,7 @@ func TestStopOrderRepoInMemory(t *testing.T) {
 			repo := NewStopOrderRepoInMemory()
 			threshold, err := entities.NewContractPrice(20)
 			require.NoError(t, err)
-			order := entities.NewStopOrder("FOO", entities.SideYes, threshold, nil)
+			order := entities.NewStopOrder("FOO", entities.SideYes, threshold, nil, nil)
 			require.NoError(t, repo.Persist(order), "Failed to persist initial order")
 
 			// Act
@@ -101,7 +100,7 @@ func TestStopOrderRepoInMemory(t *testing.T) {
 			repo := NewStopOrderRepoInMemory()
 			threshold, err := entities.NewContractPrice(20)
 			require.NoError(t, err)
-			order := entities.NewStopOrder("FOO", entities.SideYes, threshold, nil)
+			order := entities.NewStopOrder("FOO", entities.SideYes, threshold, nil, nil)
 			require.NoError(t, repo.Persist(order), "Failed to persist initial order")
 
 			// Act

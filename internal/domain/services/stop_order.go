@@ -4,23 +4,21 @@ import (
 	"fmt"
 	"log"
 	"prediction-risk/internal/domain/entities"
-
-	"github.com/google/uuid"
 )
 
 type StopOrderRepo interface {
-	GetByID(orderId uuid.UUID) (*entities.StopOrder, error)
+	GetByID(orderId entities.OrderID) (*entities.StopOrder, error)
 	GetAll() ([]*entities.StopOrder, error)
 	Persist(stopOrder *entities.StopOrder) error
 }
 
 type StopOrderService interface {
-	GetOrder(orderId uuid.UUID) (*entities.StopOrder, error)
+	GetOrder(orderId entities.OrderID) (*entities.StopOrder, error)
 	GetActiveOrders() ([]*entities.StopOrder, error)
 	CreateOrder(ticker string, side entities.Side, triggerPrice entities.ContractPrice, limitPrice *entities.ContractPrice) (*entities.StopOrder, error)
-	UpdateOrder(orderId uuid.UUID, triggerPrice *entities.ContractPrice, limitPrice *entities.ContractPrice) (*entities.StopOrder, error)
-	CancelOrder(orderId uuid.UUID) (*entities.StopOrder, error)
-	ExecuteOrder(orderId uuid.UUID, isDryRun bool) (*entities.StopOrder, error)
+	UpdateOrder(orderId entities.OrderID, triggerPrice *entities.ContractPrice, limitPrice *entities.ContractPrice) (*entities.StopOrder, error)
+	CancelOrder(orderId entities.OrderID) (*entities.StopOrder, error)
+	ExecuteOrder(orderId entities.OrderID, isDryRun bool) (*entities.StopOrder, error)
 }
 
 type stopOrderService struct {
@@ -39,7 +37,7 @@ func NewStopOrderService(
 }
 
 func (s *stopOrderService) GetOrder(
-	orderId uuid.UUID,
+	orderId entities.OrderID,
 ) (*entities.StopOrder, error) {
 	log.Printf("Getting stop order: %s", orderId)
 	order, err := s.repo.GetByID(orderId)
@@ -78,7 +76,7 @@ func (s *stopOrderService) CreateOrder(
 	log.Printf("Creating stop order - ticker: %s, side: %s, trigger price: %d, limit price: %p",
 		ticker, side, triggerPrice.Value(), limitPrice)
 
-	order := entities.NewStopOrder(ticker, side, triggerPrice, limitPrice)
+	order := entities.NewStopOrder(ticker, side, triggerPrice, limitPrice, nil)
 	log.Printf("Created stop order %s", order.ID())
 
 	if err := s.repo.Persist(order); err != nil {
@@ -90,7 +88,7 @@ func (s *stopOrderService) CreateOrder(
 }
 
 func (s *stopOrderService) UpdateOrder(
-	orderId uuid.UUID,
+	orderId entities.OrderID,
 	triggerPrice *entities.ContractPrice,
 	limitPrice *entities.ContractPrice,
 ) (*entities.StopOrder, error) {
@@ -116,7 +114,7 @@ func (s *stopOrderService) UpdateOrder(
 }
 
 func (s *stopOrderService) CancelOrder(
-	orderId uuid.UUID,
+	orderId entities.OrderID,
 ) (*entities.StopOrder, error) {
 	log.Printf("Cancelling stop order %s", orderId)
 
@@ -143,7 +141,7 @@ func (s *stopOrderService) CancelOrder(
 }
 
 func (s *stopOrderService) ExecuteOrder(
-	orderId uuid.UUID,
+	orderId entities.OrderID,
 	isDryRun bool,
 ) (*entities.StopOrder, error) {
 	log.Printf("Executing stop order %s (dry run: %v)", orderId, isDryRun)

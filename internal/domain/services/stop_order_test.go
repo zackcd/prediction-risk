@@ -5,7 +5,6 @@ import (
 	"prediction-risk/internal/domain/services/mocks"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -19,10 +18,10 @@ func TestStopOrderService(t *testing.T) {
 			mockExecutor := new(mocks.MockOrderExecutor)
 			service := NewStopOrderService(mockRepo, mockExecutor)
 
-			orderID := uuid.New()
+			orderID := entities.NewOrderID()
 			threshold, err := entities.NewContractPrice(100)
 			assert.NoError(t, err)
-			expectedOrder := entities.NewStopOrder("AAPL", entities.SideYes, threshold, nil)
+			expectedOrder := entities.NewStopOrder("AAPL", entities.SideYes, threshold, nil, &orderID)
 
 			mockRepo.On("GetByID", orderID).Return(expectedOrder, nil)
 
@@ -40,7 +39,7 @@ func TestStopOrderService(t *testing.T) {
 			mockExecutor := new(mocks.MockOrderExecutor)
 			service := NewStopOrderService(mockRepo, mockExecutor)
 
-			orderID := uuid.New()
+			orderID := entities.NewOrderID()
 			mockRepo.On("GetByID", orderID).Return(nil, nil)
 
 			order, err := service.GetOrder(orderID)
@@ -83,13 +82,13 @@ func TestStopOrderService(t *testing.T) {
 			mockExecutor := new(mocks.MockOrderExecutor)
 			service := NewStopOrderService(mockRepo, mockExecutor)
 
-			orderID := uuid.New()
+			orderID := entities.NewOrderID()
 			threshold, err := entities.NewContractPrice(80)
 			assert.NoError(t, err)
 
 			newThreshold, err := entities.NewContractPrice(100)
 			assert.NoError(t, err)
-			existingOrder := entities.NewStopOrder("AAPL", entities.SideYes, threshold, nil)
+			existingOrder := entities.NewStopOrder("AAPL", entities.SideYes, threshold, nil, &orderID)
 
 			mockRepo.On("GetByID", orderID).Return(existingOrder, nil)
 			mockRepo.On("Persist", mock.MatchedBy(func(order *entities.StopOrder) bool {
@@ -110,10 +109,10 @@ func TestStopOrderService(t *testing.T) {
 			mockExecutor := new(mocks.MockOrderExecutor)
 			service := NewStopOrderService(mockRepo, mockExecutor)
 
-			orderID := uuid.New()
+			orderID := entities.NewOrderID()
 			threshold, err := entities.NewContractPrice(100)
 			assert.NoError(t, err)
-			existingOrder := entities.NewStopOrder("AAPL", entities.SideYes, threshold, nil)
+			existingOrder := entities.NewStopOrder("AAPL", entities.SideYes, threshold, nil, &orderID)
 
 			mockRepo.On("GetByID", orderID).Return(existingOrder, nil)
 			mockRepo.On("Persist", mock.MatchedBy(func(order *entities.StopOrder) bool {
@@ -132,7 +131,7 @@ func TestStopOrderService(t *testing.T) {
 			mockExecutor := new(mocks.MockOrderExecutor)
 			service := NewStopOrderService(mockRepo, mockExecutor)
 
-			orderID := uuid.New()
+			orderID := entities.NewOrderID()
 			errResult := entities.NewErrNotFound("OrderId", orderID.String())
 			mockRepo.On("GetByID", orderID).Return(nil, errResult)
 
@@ -149,10 +148,10 @@ func TestStopOrderService(t *testing.T) {
 			mockExecutor := new(mocks.MockOrderExecutor)
 			service := NewStopOrderService(mockRepo, mockExecutor)
 
-			orderID := uuid.New()
+			orderID := entities.NewOrderID()
 			threshold, err := entities.NewContractPrice(100)
 			assert.NoError(t, err)
-			existingOrder := entities.NewStopOrder("AAPL", entities.SideYes, threshold, nil)
+			existingOrder := entities.NewStopOrder("AAPL", entities.SideYes, threshold, nil, &orderID)
 			existingOrder.UpdateStatus(entities.OrderStatusCancelled)
 
 			mockRepo.On("GetByID", orderID).Return(existingOrder, nil)

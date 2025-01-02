@@ -3,7 +3,6 @@ package mocks
 import (
 	"prediction-risk/internal/domain/entities"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -12,7 +11,7 @@ type MockStopOrderRepo struct {
 	mock.Mock
 }
 
-func (m *MockStopOrderRepo) GetByID(id uuid.UUID) (*entities.StopOrder, error) {
+func (m *MockStopOrderRepo) GetByID(id entities.OrderID) (*entities.StopOrder, error) {
 	args := m.Called(id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)

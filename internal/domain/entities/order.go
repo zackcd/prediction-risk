@@ -9,11 +9,18 @@ import (
 
 type OrderID uuid.UUID
 
+func NewOrderID() OrderID {
+	return OrderID(uuid.New())
+}
+
+func (o OrderID) String() string {
+	return uuid.UUID(o).String()
+}
+
 type OrderType string
 
 const (
-	OrderTypeStop      OrderType = "STOP"
-	OrderTypeStopLimit OrderType = "STOP_LIMIT"
+	OrderTypeStop OrderType = "STOP"
 )
 
 // OrderStatus represents the current state of an order
@@ -63,7 +70,7 @@ const (
 )
 
 type Order interface {
-	ID() uuid.UUID
+	ID() OrderID
 	OrderType() OrderType
 	Ticker() string
 	Side() Side
@@ -74,7 +81,7 @@ type Order interface {
 }
 
 type order struct {
-	id        uuid.UUID
+	orderId   OrderID
 	orderType OrderType
 	ticker    string
 	side      Side
@@ -88,10 +95,15 @@ func newOrder(
 	orderType OrderType,
 	ticker string,
 	side Side,
+	orderId *OrderID,
 ) order {
 	now := time.Now().UTC()
+	id := OrderID(uuid.New())
+	if orderId != nil {
+		id = *orderId
+	}
 	return order{
-		id:        uuid.New(),
+		orderId:   id,
 		orderType: orderType,
 		ticker:    ticker,
 		side:      side,
@@ -102,7 +114,7 @@ func newOrder(
 }
 
 // Implement getters for the base order
-func (o *order) ID() uuid.UUID        { return o.id }
+func (o *order) ID() OrderID          { return o.orderId }
 func (o *order) OrderType() OrderType { return o.orderType }
 func (o *order) Ticker() string       { return o.ticker }
 func (o *order) Side() Side           { return o.side }

@@ -128,7 +128,7 @@ func (r *StopOrderRoutes) GetStopOrder(w http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	order, err := r.service.GetOrder(orderID)
+	order, err := r.service.GetOrder(entities.OrderID(orderID))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -177,7 +177,7 @@ func (r *StopOrderRoutes) UpdateStopOrder(w http.ResponseWriter, req *http.Reque
 		}
 	}
 
-	order, err := r.service.UpdateOrder(orderID, triggerPrice, limitPrice)
+	order, err := r.service.UpdateOrder(entities.OrderID(orderID), triggerPrice, limitPrice)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -197,7 +197,7 @@ func (r *StopOrderRoutes) CancelStopOrder(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	order, err := r.service.CancelOrder(orderID)
+	order, err := r.service.CancelOrder(entities.OrderID(orderID))
 	if err != nil {
 		var notFoundErr *entities.ErrNotFound // Note the pointer type
 		if errors.As(err, &notFoundErr) {
