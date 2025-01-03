@@ -39,8 +39,7 @@ func main() {
 
 	// Setup internal services
 	exchangeService := services.NewExchangeService(kalshiClient.Market, kalshiClient.Portfolio)
-	orderExecutor := services.NewOrderExecutor(exchangeService)
-	stopOrderService := services.NewStopOrderService(stopOrderRepo, orderExecutor)
+	stopOrderService := services.NewStopOrderService(stopOrderRepo, exchangeService)
 	orderMonitor := services.NewOrderMonitor(stopOrderService, exchangeService, 5*time.Second)
 
 	// Start background processes monitoring

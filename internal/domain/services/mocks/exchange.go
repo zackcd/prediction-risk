@@ -28,8 +28,8 @@ func (m *MockExchangeService) GetPositions() (*kalshi.PositionsResult, error) {
 	return args.Get(0).(*kalshi.PositionsResult), args.Error(1)
 }
 
-func (m *MockExchangeService) CreateSellOrder(ticker string, count int, side entities.Side, orderID string) (*entities.ExchangeOrder, error) {
-	args := m.Called(ticker, count, side, orderID)
+func (m *MockExchangeService) CreateSellOrder(ticker string, count int, side entities.Side, orderID string, limitPrice *entities.ContractPrice) (*entities.ExchangeOrder, error) {
+	args := m.Called(ticker, count, side, orderID, limitPrice)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

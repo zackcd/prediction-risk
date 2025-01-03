@@ -293,7 +293,7 @@ func TestCreateSellOrder(t *testing.T) {
 			tt.mockSetup(portfolioManager)
 
 			service := NewExchangeService(nil, portfolioManager) // Market getter not needed for this test
-			order, err := service.CreateSellOrder(tt.ticker, tt.count, tt.side, tt.orderID)
+			order, err := service.CreateSellOrder(tt.ticker, tt.count, tt.side, tt.orderID, nil)
 
 			if tt.expectError {
 				assert.Error(t, err)

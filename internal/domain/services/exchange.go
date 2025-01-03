@@ -8,7 +8,7 @@ import (
 type ExchangeService interface {
 	GetMarket(ticker string) (*kalshi.Market, error)
 	GetPositions() (*kalshi.PositionsResult, error)
-	CreateSellOrder(ticker string, count int, side entities.Side, orderID string) (*entities.ExchangeOrder, error)
+	CreateSellOrder(ticker string, count int, side entities.Side, orderID string, limitPrice *entities.ContractPrice) (*entities.ExchangeOrder, error)
 }
 
 type MarketGetter interface {
@@ -54,6 +54,7 @@ func (es *exchangeService) CreateSellOrder(
 	count int,
 	side entities.Side,
 	orderID string,
+	limitPrice *entities.ContractPrice,
 ) (*entities.ExchangeOrder, error) {
 	var orderSide kalshi.OrderSide
 	if side == entities.SideYes {
@@ -61,13 +62,31 @@ func (es *exchangeService) CreateSellOrder(
 	} else {
 		orderSide = kalshi.OrderSideNo
 	}
+
+	var orderType string
+	var yesPrice *int
+	var noPrice *int
+	if limitPrice != nil {
+		orderType = "limit"
+		value := limitPrice.Value()
+		if side == entities.SideYes {
+			yesPrice = &value
+		} else {
+			noPrice = &value
+		}
+	} else {
+		orderType = "market"
+	}
+
 	request := kalshi.CreateOrderRequest{
 		Ticker:        ticker,
 		ClientOrderID: orderID,
 		Side:          orderSide,
 		Action:        kalshi.OrderActionSell,
 		Count:         count,
-		Type:          "market",
+		Type:          orderType,
+		YesPrice:      yesPrice,
+		NoPrice:       noPrice,
 	}
 	resp, err := es.portfolio.CreateOrder(request)
 	if err != nil {

@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"log"
 	"prediction-risk/internal/domain/entities"
+	"prediction-risk/internal/infrastructure/external/kalshi"
+
+	"github.com/samber/lo"
 )
 
 type StopOrderRepo interface {
@@ -23,16 +26,16 @@ type StopOrderService interface {
 
 type stopOrderService struct {
 	repo     StopOrderRepo
-	executor OrderExecutor
+	exchange ExchangeService
 }
 
 func NewStopOrderService(
 	repo StopOrderRepo,
-	executor OrderExecutor,
+	exchange ExchangeService,
 ) *stopOrderService {
 	return &stopOrderService{
 		repo:     repo,
-		executor: executor,
+		exchange: exchange,
 	}
 }
 
@@ -152,10 +155,38 @@ func (s *stopOrderService) ExecuteOrder(
 		return nil, err
 	}
 
-	if err := s.executor.ExecuteOrder(order, isDryRun); err != nil {
-		log.Printf("Error executing order %s: %v", order.ID(), err)
-		return nil, fmt.Errorf("executing order: %w", err)
+	log.Printf("Getting positions for order %s execution", order.ID())
+	positionsResp, err := s.exchange.GetPositions()
+	if err != nil {
+		log.Printf("Error getting positions for order %s: %v", order.ID(), err)
+		return nil, fmt.Errorf("getting positions: %w", err)
 	}
+
+	position, found := lo.Find(positionsResp.MarketPositions, func(mp kalshi.MarketPosition) bool {
+		return mp.Ticker == order.Ticker()
+	})
+	if !found {
+		log.Printf("No position found for ticker %s", order.Ticker())
+		return nil, fmt.Errorf("no position found for ticker %s", order.Ticker())
+	}
+
+	// Check if order specifies a quantity
+	count := abs(position.Position)
+	log.Printf("Executing stop order for %d contracts of %s", count, order.Ticker())
+
+	_, err = s.exchange.CreateSellOrder(
+		order.Ticker(),
+		count,
+		order.Side(),
+		order.ID().String(),
+		order.LimitPrice(),
+	)
+	if err != nil {
+		log.Printf("Error executing stop order for %s: %v", order.ID(), err)
+		return nil, fmt.Errorf("executing stop order: %w", err)
+	}
+
+	log.Printf("Successfully  executed stop order %s", order.ID())
 
 	order.UpdateStatus(entities.OrderStatusTriggered)
 	err = s.repo.Persist(order)
@@ -165,4 +196,11 @@ func (s *stopOrderService) ExecuteOrder(
 	}
 
 	return order, nil
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
 }

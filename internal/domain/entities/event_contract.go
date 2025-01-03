@@ -5,21 +5,21 @@ import "fmt"
 // Price of a contract in cents
 // Contracts can be priced between $0.00 and $1.00, in increments of $0.01
 // To make operations more accurate, we store the price in cents
-type contractPrice int
-
-type ContractPrice interface {
-	Value() int
-}
+type ContractPrice int
 
 func NewContractPrice(value int) (ContractPrice, error) {
 	if value < 0 || value > 100 {
-		return nil, fmt.Errorf("contract price must be between 0 and 100, got: %d", value)
+		return 0, fmt.Errorf("contract price must be between 0 and 100, got: %d", value)
 	}
-	return contractPrice(value), nil
+	return ContractPrice(value), nil
 }
 
-func (p contractPrice) Value() int {
+func (p ContractPrice) Value() int {
 	return int(p)
+}
+
+func (p ContractPrice) IsValid() bool {
+	return p >= 0 && p <= 100
 }
 
 type side string
