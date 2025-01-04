@@ -20,6 +20,7 @@ func NewPositionMonitor(
 	stopOrderService StopOrderService,
 	interval time.Duration,
 ) *PositionMonitor {
+	log.Printf("Initializing PositionMonitor with interval: %v", interval)
 	return &PositionMonitor{
 		exchangeService:  exchangeService,
 		stopOrderService: stopOrderService,
@@ -29,7 +30,7 @@ func NewPositionMonitor(
 }
 
 func (m *PositionMonitor) Start() {
-	log.Printf("Starting PositionMonitor with interval: %v", m.interval)
+	log.Println("Starting PositionMonitor")
 
 	// Initial sync
 	if err := m.syncPositions(); err != nil {
@@ -46,6 +47,7 @@ func (m *PositionMonitor) Start() {
 				log.Println("PositionMonitor stopped")
 				return
 			case <-ticker.C:
+				log.Println("Running position check...")
 				if err := m.syncPositions(); err != nil {
 					log.Printf("Error during position sync: %v", err)
 				}

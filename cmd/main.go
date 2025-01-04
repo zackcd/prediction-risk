@@ -10,15 +10,18 @@ import (
 	"prediction-risk/internal/config"
 	"prediction-risk/internal/domain/services"
 	"prediction-risk/internal/infrastructure/external/kalshi"
-	"prediction-risk/internal/infrastructure/repositories/inmemory"
+	"prediction-risk/internal/infrastructure/repositories/postgres"
 	"prediction-risk/internal/interfaces/api"
 	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 )
 
 func main() {
+
 	config, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("error loading config: %v", err)
@@ -35,20 +38,32 @@ func main() {
 		config.Kalshi.APIKeyID,
 		kalshiPrivateKey,
 	)
-	stopOrderRepo := inmemory.NewStopOrderRepoInMemory()
 
-	// Setup internal services
+	dsn := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		"postgres",
+		config.Databases.Port,
+		config.Databases.User,
+		config.Databases.Password,
+		config.Databases.Name,
+	)
+	db, err := sqlx.Connect("postgres", dsn)
+	if err != nil {
+		log.Fatalf("error connecting to database: %v", err)
+	}
+	defer db.Close()
+
+	stopOrderRepo := postgres.NewStopOrderRepoPostgres(db)
 	exchangeService := services.NewExchangeService(kalshiClient.Market, kalshiClient.Portfolio)
 	stopOrderService := services.NewStopOrderService(stopOrderRepo, exchangeService)
-	orderMonitor := services.NewOrderMonitor(stopOrderService, exchangeService, 5*time.Second)
 	positionMonitor := services.NewPositionMonitor(exchangeService, stopOrderService, 5*time.Second)
-
-	// Start background processes monitoring
-	orderMonitor.Start(config.IsDryRun)
-	defer orderMonitor.Stop()
+	orderMonitor := services.NewOrderMonitor(stopOrderService, exchangeService, 5*time.Second)
 
 	positionMonitor.Start()
+
+	orderMonitor.Start(config.IsDryRun)
 	defer positionMonitor.Stop()
+	defer orderMonitor.Stop()
 
 	// Setup router
 	router := chi.NewRouter()

@@ -38,12 +38,12 @@ func (m *OrderMonitor) Start(isDryRun bool) {
 		for {
 			select {
 			case <-m.done:
-				log.Println("OrderMonitor stopping")
+				log.Println("OrderMonitor stopped")
 				return
 			case <-ticker.C:
 				log.Println("Running order check...")
 				if err := m.checkOrders(isDryRun); err != nil {
-					log.Printf("ERROR checking orders: %v", err)
+					log.Printf("Error checking orders: %v", err)
 				}
 			}
 		}

@@ -49,7 +49,7 @@ func (c *portfolioClient) collectAllPositions(params GetPositionsOptions, result
 		result.MarketPositions = append(result.MarketPositions, page.MarketPositions...)
 		result.EventPositions = append(result.EventPositions, page.EventPositions...)
 
-		if page.Cursor == nil || len(page.EventPositions)+len(page.MarketPositions) == 0 {
+		if page.Cursor == nil || *page.Cursor == "" || len(page.EventPositions)+len(page.MarketPositions) == 0 {
 			break
 		}
 		cursor = page.Cursor
