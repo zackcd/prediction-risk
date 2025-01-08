@@ -1,13 +1,16 @@
 package nws
 
-type StationQueryParams struct {
+type StationCollection struct {
+	Type                string    `json:"type"`
+	Features            []Station `json:"features"`
+	ObservationStations []string  `json:"observationStations"`
 }
 
-type StationCollection struct {
-	Type                string     `json:"type"`
-	Features            []Station  `json:"features"`
-	ObservationStations []string   `json:"observationStations"`
-	Pagination          Pagination `json:"pagination"`
+type StationsResponse struct {
+	Type                string      `json:"type"`
+	Features            []Station   `json:"features"`
+	ObservationStations []string    `json:"observationStations"`
+	Pagination          *Pagination `json:"pagination"`
 }
 
 type Station struct {

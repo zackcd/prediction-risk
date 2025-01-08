@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"prediction-risk/internal/infrastructure/external"
 )
 
 type client struct {
@@ -16,9 +17,11 @@ type client struct {
 
 func newClient(baseURL string, userAgent string) *client {
 	return &client{
-		baseURL:    baseURL,
-		userAgent:  userAgent,
-		httpClient: &http.Client{},
+		baseURL:   baseURL,
+		userAgent: userAgent,
+		httpClient: &http.Client{
+			Transport: &external.LoggingTransport{Transport: http.DefaultTransport},
+		},
 	}
 }
 

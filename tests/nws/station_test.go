@@ -46,7 +46,7 @@ func TestStationIntegration(t *testing.T) {
 	})
 
 	t.Run("list stations", func(t *testing.T) {
-		stations, err := client.Station.List(nil)
+		stations, err := client.Station.ListAllStations()
 		require.NoError(t, err)
 		require.NotNil(t, stations)
 
@@ -56,7 +56,7 @@ func TestStationIntegration(t *testing.T) {
 	})
 
 	t.Run("get station observations", func(t *testing.T) {
-		observations, err := client.Station.GetObservations(testStation)
+		observations, err := client.Station.GetObservations(testStation, nws.ObservationQueryParams{})
 		require.NoError(t, err)
 		require.NotNil(t, observations)
 		require.NotEmpty(t, observations.Features)
