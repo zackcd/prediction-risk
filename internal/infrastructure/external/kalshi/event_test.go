@@ -20,7 +20,7 @@ func setupTestClient(serverURL string) (*eventClient, error) {
 		return nil, err
 	}
 
-	baseClient := NewBaseClient(serverURL, "test-key", privateKey)
+	baseClient := newClient(serverURL, "test-key", privateKey)
 	return newEventClient(baseClient), nil
 }
 

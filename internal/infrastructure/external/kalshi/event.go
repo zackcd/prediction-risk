@@ -7,11 +7,11 @@ import (
 )
 
 type eventClient struct {
-	client *baseClient
+	*client
 }
 
-func newEventClient(client *baseClient) *eventClient {
-	return &eventClient{client: client}
+func newEventClient(client *client) *eventClient {
+	return &eventClient{client}
 }
 
 func (c *eventClient) GetEvent(eventTicker string) (*EventResponse, error) {

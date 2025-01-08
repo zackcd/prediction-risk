@@ -6,13 +6,11 @@ import (
 )
 
 type portfolioClient struct {
-	client *baseClient
+	*client
 }
 
-func NewPortfolioClient(client *baseClient) *portfolioClient {
-	return &portfolioClient{
-		client: client,
-	}
+func NewPortfolioClient(client *client) *portfolioClient {
+	return &portfolioClient{client}
 }
 
 func (c *portfolioClient) CreateOrder(order CreateOrderRequest) (*CreateOrderResponse, error) {

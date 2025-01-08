@@ -1,7 +1,6 @@
 package kalshi
 
 import (
-	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -10,14 +9,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
+	"prediction-risk/internal/infrastructure/external"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -28,51 +25,6 @@ const (
 	eventsPath    = baseAPIPath + "/events"
 )
 
-type loggingTransport struct {
-	transport http.RoundTripper
-}
-
-func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	reqID := uuid.New().String()
-	startTime := time.Now()
-
-	// Log request
-	var reqBody []byte
-	if req.Body != nil {
-		reqBody, _ = io.ReadAll(req.Body)
-		req.Body = io.NopCloser(bytes.NewBuffer(reqBody))
-	}
-
-	log.Printf("[%s] Request %s %s\n"+
-		"Body: %s\n",
-		reqID, req.Method, req.URL,
-		string(reqBody))
-
-	// Perform the request
-	resp, err := t.transport.RoundTrip(req)
-	if err != nil {
-		log.Printf("[%s] Request failed: %v", reqID, err)
-		return nil, err
-	}
-
-	// Log response
-	var respBody []byte
-	if resp.Body != nil {
-		respBody, _ = io.ReadAll(resp.Body)
-		resp.Body = io.NopCloser(bytes.NewBuffer(respBody))
-	}
-
-	duration := time.Since(startTime)
-	log.Printf("[%s] Response completed in %v\n"+
-		"Status: %s\n"+
-		"Body: %s\n",
-		reqID, duration,
-		resp.Status,
-		string(respBody))
-
-	return resp, err
-}
-
 /*
 Represents a base client to interact with the Kalshi API
 Requires:
@@ -80,7 +32,7 @@ Requires:
 - Base URL representing the environment
 - Underlying HTTP client
 */
-type baseClient struct {
+type client struct {
 	host        string
 	keyID       string
 	privateKey  *rsa.PrivateKey
@@ -89,19 +41,19 @@ type baseClient struct {
 	mutex       sync.Mutex // For thread-safe rate limiting
 }
 
-func NewBaseClient(host, keyID string, privateKey *rsa.PrivateKey) *baseClient {
-	return &baseClient{
+func newClient(host, keyID string, privateKey *rsa.PrivateKey) *client {
+	return &client{
 		host:        host,
 		keyID:       keyID,
 		privateKey:  privateKey,
 		lastAPICall: time.Now(),
 		httpClient: &http.Client{
-			Transport: &loggingTransport{http.DefaultTransport},
+			Transport: &external.LoggingTransport{Transport: http.DefaultTransport},
 		},
 	}
 }
 
-func (kc *baseClient) rateLimit() {
+func (kc *client) rateLimit() {
 	kc.mutex.Lock()
 	defer kc.mutex.Unlock()
 
@@ -115,7 +67,7 @@ func (kc *baseClient) rateLimit() {
 	kc.lastAPICall = time.Now()
 }
 
-func (kc *baseClient) get(path string, params map[string]string) (*http.Response, error) {
+func (kc *client) get(path string, params map[string]string) (*http.Response, error) {
 	kc.rateLimit()
 
 	fullURL := kc.host + path
@@ -141,7 +93,7 @@ func (kc *baseClient) get(path string, params map[string]string) (*http.Response
 	return kc.httpClient.Do(req)
 }
 
-func (kc *baseClient) post(path string, body interface{}) (*http.Response, error) {
+func (kc *client) post(path string, body interface{}) (*http.Response, error) {
 	kc.rateLimit()
 
 	fullURL := kc.host + path
@@ -168,7 +120,7 @@ func (kc *baseClient) post(path string, body interface{}) (*http.Response, error
 	return kc.httpClient.Do(req)
 }
 
-func (kc *baseClient) requestHeaders(method, path string) (map[string]string, error) {
+func (kc *client) requestHeaders(method, path string) (map[string]string, error) {
 	currentTimeMilliseconds := time.Now().UnixNano() / int64(time.Millisecond)
 	timestampStr := fmt.Sprintf("%d", currentTimeMilliseconds)
 
@@ -194,7 +146,7 @@ func (kc *baseClient) requestHeaders(method, path string) (map[string]string, er
 	return headers, nil
 }
 
-func (kc *baseClient) signPSSText(text string) (string, error) {
+func (kc *client) signPSSText(text string) (string, error) {
 	message := []byte(text)
 
 	hashed := sha256.Sum256(message)
@@ -211,7 +163,7 @@ func (kc *baseClient) signPSSText(text string) (string, error) {
 	return signatureBase64, nil
 }
 
-func (kc *baseClient) queryGeneration(params map[string]string) string {
+func (kc *client) queryGeneration(params map[string]string) string {
 	values := url.Values{}
 	for k, v := range params {
 		if v != "" {

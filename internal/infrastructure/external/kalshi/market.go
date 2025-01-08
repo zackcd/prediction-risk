@@ -8,11 +8,11 @@ import (
 )
 
 type marketClient struct {
-	client *baseClient
+	*client
 }
 
-func NewMarketClient(client *baseClient) *marketClient {
-	return &marketClient{client: client}
+func NewMarketClient(client *client) *marketClient {
+	return &marketClient{client}
 }
 
 func (c *marketClient) GetMarket(ticker string) (*MarketResponse, error) {

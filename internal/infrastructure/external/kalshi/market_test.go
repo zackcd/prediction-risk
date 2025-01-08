@@ -18,7 +18,7 @@ func setupTestMarketClient(serverURL string) (*marketClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	baseClient := NewBaseClient(serverURL, "test-key", privateKey)
+	baseClient := newClient(serverURL, "test-key", privateKey)
 	return NewMarketClient(baseClient), nil
 }
 

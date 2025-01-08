@@ -5,7 +5,7 @@ import (
 )
 
 type KalshiClient struct {
-	baseClient *baseClient
+	client *client
 
 	Portfolio *portfolioClient
 	Market    *marketClient
@@ -13,13 +13,13 @@ type KalshiClient struct {
 }
 
 func NewKalshiClient(host, keyID string, privateKey *rsa.PrivateKey) *KalshiClient {
-	baseClient := NewBaseClient(host, keyID, privateKey)
+	client := newClient(host, keyID, privateKey)
 
 	return &KalshiClient{
-		baseClient: baseClient,
+		client: client,
 
-		Portfolio: NewPortfolioClient(baseClient),
-		Market:    NewMarketClient(baseClient),
-		Event:     newEventClient(baseClient),
+		Portfolio: NewPortfolioClient(client),
+		Market:    NewMarketClient(client),
+		Event:     newEventClient(client),
 	}
 }
