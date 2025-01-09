@@ -57,13 +57,13 @@ func main() {
 	exchangeService := services.NewExchangeService(kalshiClient.Market, kalshiClient.Portfolio)
 	stopOrderService := services.NewStopOrderService(stopOrderRepo, exchangeService)
 	positionMonitor := services.NewPositionMonitor(exchangeService, stopOrderService, 5*time.Second)
-	orderMonitor := services.NewOrderMonitor(stopOrderService, exchangeService, 5*time.Second)
+	orderMonitor := services.NewOrderMonitor(stopOrderService, exchangeService, 5*time.Second, config.IsDryRun)
 
-	positionMonitor.Start()
-
-	orderMonitor.Start(config.IsDryRun)
-	defer positionMonitor.Stop()
-	defer orderMonitor.Stop()
+	// Run monitors
+	monitors := []services.Monitor{positionMonitor, orderMonitor}
+	for _, m := range monitors {
+		services.RunMonitor(m)
+	}
 
 	// Setup router
 	router := chi.NewRouter()

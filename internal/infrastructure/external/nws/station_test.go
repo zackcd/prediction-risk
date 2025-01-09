@@ -85,7 +85,7 @@ func TestStationGet(t *testing.T) {
 			server, client := setupTestServer(tc.setupMock)
 			defer server.Close()
 
-			result, err := client.Station.Get(tc.stationID)
+			result, err := client.Station.GetStation(tc.stationID)
 
 			if tc.wantErr {
 				require.Error(t, err)

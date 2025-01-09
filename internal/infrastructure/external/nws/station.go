@@ -9,7 +9,7 @@ type stationClient struct {
 	*client
 }
 
-func (c *stationClient) Get(stationID string) (*Station, error) {
+func (c *stationClient) GetStation(stationID string) (*Station, error) {
 	path := fmt.Sprintf("/stations/%s", stationID)
 	resp, err := c.get(path, nil)
 	if err != nil {

@@ -26,13 +26,13 @@ func TestStopLossMonitor(t *testing.T) {
 		}
 
 		mockStopOrder.On("GetActiveOrders").Return([]*entities.StopOrder{order}, nil)
-		mockStopOrder.On("ExecuteOrder", order.ID(), true).Return(order, nil)
+		mockStopOrder.On("ExecuteOrder", order.ID(), false).Return(order, nil)
 		mockExchange.On("GetMarket", "MARKET-1").Return(market, nil)
 
-		monitor := NewOrderMonitor(mockStopOrder, mockExchange, time.Second)
+		monitor := NewOrderMonitor(mockStopOrder, mockExchange, time.Second, false)
 
 		// Act
-		err := monitor.checkOrders(true)
+		err := monitor.checkOrders()
 
 		// Assert
 		assert.NoError(t, err)
@@ -55,13 +55,13 @@ func TestStopLossMonitor(t *testing.T) {
 		}
 
 		mockStopOrder.On("GetActiveOrders").Return([]*entities.StopOrder{order}, nil)
-		mockStopOrder.On("ExecuteOrder", order.ID(), true).Return(order, nil)
+		mockStopOrder.On("ExecuteOrder", order.ID(), false).Return(order, nil)
 		mockExchange.On("GetMarket", "MARKET-1").Return(market, nil)
 
-		monitor := NewOrderMonitor(mockStopOrder, mockExchange, time.Second)
+		monitor := NewOrderMonitor(mockStopOrder, mockExchange, time.Second, false)
 
 		// Act
-		err := monitor.checkOrders(true)
+		err := monitor.checkOrders()
 
 		// Assert
 		assert.NoError(t, err)
@@ -87,10 +87,10 @@ func TestStopLossMonitor(t *testing.T) {
 		mockExchange.On("GetMarket", "MARKET-1").Return(market, nil)
 		// Note: ExecuteOrder should not be called
 
-		monitor := NewOrderMonitor(mockStopOrder, mockExchange, time.Second)
+		monitor := NewOrderMonitor(mockStopOrder, mockExchange, time.Second, false)
 
 		// Act
-		err := monitor.checkOrders(true)
+		err := monitor.checkOrders()
 
 		// Assert
 		assert.NoError(t, err)
@@ -109,10 +109,10 @@ func TestStopLossMonitor(t *testing.T) {
 		mockStopOrder.On("GetActiveOrders").Return([]*entities.StopOrder{order}, nil)
 		mockExchange.On("GetMarket", "MARKET-1").Return(nil, assert.AnError)
 
-		monitor := NewOrderMonitor(mockStopOrder, mockExchange, time.Second)
+		monitor := NewOrderMonitor(mockStopOrder, mockExchange, time.Second, false)
 
 		// Act
-		err := monitor.checkOrders(true)
+		err := monitor.checkOrders()
 
 		// Assert
 		assert.NoError(t, err) // Should not return error as it continues processing
@@ -127,10 +127,10 @@ func TestStopLossMonitor(t *testing.T) {
 
 		mockStopOrder.On("GetActiveOrders").Return(nil, assert.AnError)
 
-		monitor := NewOrderMonitor(mockStopOrder, mockExchange, time.Second)
+		monitor := NewOrderMonitor(mockStopOrder, mockExchange, time.Second, false)
 
 		// Act
-		err := monitor.checkOrders(true)
+		err := monitor.checkOrders()
 
 		// Assert
 		assert.Error(t, err)

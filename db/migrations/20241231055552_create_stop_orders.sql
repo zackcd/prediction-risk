@@ -1,4 +1,6 @@
 -- migrate:up
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE SCHEMA IF NOT EXISTS event_contract;
 
 CREATE DOMAIN event_contract.contract_price_cents AS INTEGER CHECK (
@@ -13,7 +15,7 @@ CREATE TYPE event_contract.order_type AS ENUM ('STOP');
 CREATE TYPE event_contract.order_side AS ENUM ('YES', 'NO');
 
 CREATE TABLE event_contract.order (
-    order_id UUID PRIMARY KEY,
+    order_id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
     order_type event_contract.order_type NOT NULL,
     ticker VARCHAR NOT NULL,
     side event_contract.order_side NOT NULL,
@@ -35,3 +37,5 @@ WHERE
 
 -- migrate:down
 DROP SCHEMA IF EXISTS event_contract;
+
+DROP EXTENSION IF EXISTS "uuid-ossp";

@@ -30,7 +30,7 @@ func TestStationIntegration(t *testing.T) {
 	const testStation = "KNYC"
 
 	t.Run("get station details", func(t *testing.T) {
-		station, err := client.Station.Get(testStation)
+		station, err := client.Station.GetStation(testStation)
 		require.NoError(t, err)
 		require.NotNil(t, station)
 
@@ -84,7 +84,7 @@ func TestStationIntegration(t *testing.T) {
 	})
 
 	t.Run("handle invalid station ID", func(t *testing.T) {
-		_, err := client.Station.Get("INVALID")
+		_, err := client.Station.GetStation("INVALID")
 		require.Error(t, err)
 	})
 

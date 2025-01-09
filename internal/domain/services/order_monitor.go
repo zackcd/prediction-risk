@@ -13,12 +13,14 @@ type OrderMonitor struct {
 	exchange         ExchangeService
 	interval         time.Duration
 	done             chan struct{}
+	isDryRun         bool
 }
 
 func NewOrderMonitor(
 	stopOrderService StopOrderService,
 	exchange ExchangeService,
 	interval time.Duration,
+	isDryRun bool,
 ) *OrderMonitor {
 	log.Printf("Initializing OrderMonitor with interval: %v", interval)
 	return &OrderMonitor{
@@ -29,8 +31,8 @@ func NewOrderMonitor(
 	}
 }
 
-func (m *OrderMonitor) Start(isDryRun bool) {
-	log.Printf("Starting OrderMonitor (dry run: %v)", isDryRun)
+func (m *OrderMonitor) Start() {
+	log.Printf("Starting OrderMonitor")
 	go func() {
 		ticker := time.NewTicker(m.interval)
 		defer ticker.Stop()
@@ -42,7 +44,7 @@ func (m *OrderMonitor) Start(isDryRun bool) {
 				return
 			case <-ticker.C:
 				log.Println("Running order check...")
-				if err := m.checkOrders(isDryRun); err != nil {
+				if err := m.checkOrders(); err != nil {
 					log.Printf("Error checking orders: %v", err)
 				}
 			}
@@ -55,7 +57,7 @@ func (m *OrderMonitor) Stop() {
 	close(m.done)
 }
 
-func (m *OrderMonitor) checkOrders(isDryRun bool) error {
+func (m *OrderMonitor) checkOrders() error {
 	activeOrders, err := m.stopOrderService.GetActiveOrders()
 	if err != nil {
 		return fmt.Errorf("getting active orders: %w", err)
@@ -96,8 +98,8 @@ func (m *OrderMonitor) checkOrders(isDryRun bool) error {
 		log.Printf("Order %s should execute: %v", order.ID(), shouldExecute)
 
 		if shouldExecute {
-			log.Printf("Executing stop order %s (dry run: %v)...", order.ID(), isDryRun)
-			_, err := m.stopOrderService.ExecuteOrder(order.ID(), isDryRun)
+			log.Printf("Executing stop order %s (dry run: %v)...", order.ID(), m.isDryRun)
+			_, err := m.stopOrderService.ExecuteOrder(order.ID(), m.isDryRun)
 			if err != nil {
 				log.Printf("ERROR executing order %s: %v", order.ID(), err)
 			} else {
