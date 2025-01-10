@@ -2,7 +2,8 @@ package postgres
 
 import (
 	"database/sql"
-	"prediction-risk/internal/domain/entities"
+	"prediction-risk/internal/domain/contract"
+	"prediction-risk/internal/domain/order"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -16,7 +17,7 @@ func NewStopOrderRepoPostgres(db *sqlx.DB) *StopOrderRepoPostgres {
 	return &StopOrderRepoPostgres{db: db}
 }
 
-func (r *StopOrderRepoPostgres) GetByID(id entities.OrderID) (*entities.StopOrder, error) {
+func (r *StopOrderRepoPostgres) GetByID(id order.OrderID) (*order.StopOrder, error) {
 	const query = `
 		SELECT
 			o.order_id,
@@ -50,20 +51,20 @@ func (r *StopOrderRepoPostgres) GetByID(id entities.OrderID) (*entities.StopOrde
 		return nil, err
 	}
 
-	side, err := entities.NewSide(result.Side)
+	side, err := contract.NewSide(result.Side)
 	if err != nil {
 		return nil, err
 	}
 
 	// Not checking error because database value is guaranteed to be valid
-	triggerPrice, _ := entities.NewContractPrice(result.TriggerPrice)
-	var limitPrice *entities.ContractPrice
+	triggerPrice, _ := contract.NewContractPrice(result.TriggerPrice)
+	var limitPrice *contract.ContractPrice
 	if result.LimitPrice.Valid {
-		price, _ := entities.NewContractPrice(int(result.LimitPrice.Int64))
+		price, _ := contract.NewContractPrice(int(result.LimitPrice.Int64))
 		limitPrice = &price
 	}
 
-	stopOrder := entities.NewStopOrder(
+	stopOrder := order.NewStopOrder(
 		result.Ticker,
 		side,
 		triggerPrice,
@@ -71,7 +72,7 @@ func (r *StopOrderRepoPostgres) GetByID(id entities.OrderID) (*entities.StopOrde
 		&id,
 	)
 
-	status, err := entities.ParseOrderStatus(result.Status)
+	status, err := order.ParseOrderStatus(result.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +84,7 @@ func (r *StopOrderRepoPostgres) GetByID(id entities.OrderID) (*entities.StopOrde
 	return stopOrder, nil
 }
 
-func (r *StopOrderRepoPostgres) GetAll() ([]*entities.StopOrder, error) {
+func (r *StopOrderRepoPostgres) GetAll() ([]*order.StopOrder, error) {
 	const query = `
 		SELECT
 			o.order_id,
@@ -114,23 +115,23 @@ func (r *StopOrderRepoPostgres) GetAll() ([]*entities.StopOrder, error) {
 		return nil, err
 	}
 
-	stopOrders := make([]*entities.StopOrder, 0, len(results))
+	stopOrders := make([]*order.StopOrder, 0, len(results))
 	for _, result := range results {
-		side, err := entities.NewSide(result.Side)
+		side, err := contract.NewSide(result.Side)
 		if err != nil {
 			return nil, err
 		}
 
-		triggerPrice, _ := entities.NewContractPrice(result.TriggerPrice)
-		var limitPrice *entities.ContractPrice
+		triggerPrice, _ := contract.NewContractPrice(result.TriggerPrice)
+		var limitPrice *contract.ContractPrice
 		if result.LimitPrice.Valid {
-			price, _ := entities.NewContractPrice(int(result.LimitPrice.Int64))
+			price, _ := contract.NewContractPrice(int(result.LimitPrice.Int64))
 			limitPrice = &price
 		}
 
-		id := entities.OrderID(result.OrderID)
+		id := order.OrderID(result.OrderID)
 
-		stopOrder := entities.NewStopOrder(
+		stopOrder := order.NewStopOrder(
 			result.Ticker,
 			side,
 			triggerPrice,
@@ -138,7 +139,7 @@ func (r *StopOrderRepoPostgres) GetAll() ([]*entities.StopOrder, error) {
 			&id,
 		)
 
-		status, err := entities.ParseOrderStatus(result.Status)
+		status, err := order.ParseOrderStatus(result.Status)
 		if err != nil {
 			return nil, err
 		}
@@ -153,7 +154,7 @@ func (r *StopOrderRepoPostgres) GetAll() ([]*entities.StopOrder, error) {
 	return stopOrders, nil
 }
 
-func (r *StopOrderRepoPostgres) Persist(stopOrder *entities.StopOrder) error {
+func (r *StopOrderRepoPostgres) Persist(stopOrder *order.StopOrder) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err

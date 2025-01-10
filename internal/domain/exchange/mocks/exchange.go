@@ -1,7 +1,8 @@
 package mocks
 
 import (
-	"prediction-risk/internal/domain/entities"
+	"prediction-risk/internal/domain/contract"
+	"prediction-risk/internal/domain/exchange"
 	"prediction-risk/internal/infrastructure/external/kalshi"
 
 	"github.com/stretchr/testify/mock"
@@ -28,10 +29,16 @@ func (m *MockExchangeService) GetPositions() (*kalshi.PositionsResult, error) {
 	return args.Get(0).(*kalshi.PositionsResult), args.Error(1)
 }
 
-func (m *MockExchangeService) CreateSellOrder(ticker string, count int, side entities.Side, orderID string, limitPrice *entities.ContractPrice) (*entities.ExchangeOrder, error) {
+func (m *MockExchangeService) CreateSellOrder(
+	ticker string,
+	count int,
+	side contract.Side,
+	orderID string,
+	limitPrice *contract.ContractPrice,
+) (*exchange.ExchangeOrder, error) {
 	args := m.Called(ticker, count, side, orderID, limitPrice)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*entities.ExchangeOrder), args.Error(1)
+	return args.Get(0).(*exchange.ExchangeOrder), args.Error(1)
 }

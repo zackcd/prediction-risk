@@ -1,7 +1,8 @@
-package entities
+package order
 
 import (
 	"fmt"
+	"prediction-risk/internal/domain/contract"
 	"time"
 
 	"github.com/google/uuid"
@@ -73,7 +74,7 @@ type Order interface {
 	ID() OrderID
 	OrderType() OrderType
 	Ticker() string
-	Side() Side
+	Side() contract.Side
 	Status() OrderStatus
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
@@ -84,7 +85,7 @@ type order struct {
 	orderId   OrderID
 	orderType OrderType
 	ticker    string
-	side      Side
+	side      contract.Side
 	status    OrderStatus
 	createdAt time.Time
 	updatedAt time.Time
@@ -94,7 +95,7 @@ type order struct {
 func newOrder(
 	orderType OrderType,
 	ticker string,
-	side Side,
+	side contract.Side,
 	orderId *OrderID,
 ) order {
 	now := time.Now().UTC()
@@ -117,7 +118,7 @@ func newOrder(
 func (o *order) ID() OrderID          { return o.orderId }
 func (o *order) OrderType() OrderType { return o.orderType }
 func (o *order) Ticker() string       { return o.ticker }
-func (o *order) Side() Side           { return o.side }
+func (o *order) Side() contract.Side  { return o.side }
 func (o *order) Status() OrderStatus  { return o.status }
 func (o *order) CreatedAt() time.Time { return o.createdAt }
 func (o *order) UpdatedAt() time.Time { return o.updatedAt }

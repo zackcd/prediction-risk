@@ -1,7 +1,7 @@
 package mocks
 
 import (
-	"prediction-risk/internal/domain/entities/weather"
+	"prediction-risk/internal/domain/weather"
 	"testing"
 
 	"github.com/stretchr/testify/mock"

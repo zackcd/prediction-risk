@@ -1,7 +1,8 @@
 package postgres
 
 import (
-	"prediction-risk/internal/domain/entities"
+	"prediction-risk/internal/domain/contract"
+	"prediction-risk/internal/domain/order"
 	"testing"
 
 	_ "github.com/lib/pq"
@@ -9,17 +10,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createTestStopOrder(t *testing.T, ticker string) *entities.StopOrder {
-	side, err := entities.NewSide("YES")
+func createTestStopOrder(t *testing.T, ticker string) *order.StopOrder {
+	side, err := contract.NewSide("YES")
 	require.NoError(t, err)
 
-	triggerPrice, err := entities.NewContractPrice(50)
+	triggerPrice, err := contract.NewContractPrice(50)
 	require.NoError(t, err)
 
-	limitPrice, err := entities.NewContractPrice(45)
+	limitPrice, err := contract.NewContractPrice(45)
 	require.NoError(t, err)
 
-	return entities.NewStopOrder(
+	return order.NewStopOrder(
 		ticker,
 		side,
 		triggerPrice,
@@ -34,7 +35,7 @@ func TestStopOrderRepo_GetByID_NotFound(t *testing.T) {
 
 	repo := NewStopOrderRepoPostgres(testdb.db)
 
-	order, err := repo.GetByID(entities.NewOrderID())
+	order, err := repo.GetByID(order.NewOrderID())
 	require.NoError(t, err)
 	assert.Nil(t, order)
 }
@@ -104,13 +105,13 @@ func TestStopOrderRepo_GetAll_MultipleOrders(t *testing.T) {
 	assert.Len(t, orders, 2)
 
 	// Map orders by ID for easier comparison
-	orderMap := make(map[entities.OrderID]*entities.StopOrder)
+	orderMap := make(map[order.OrderID]*order.StopOrder)
 	for _, order := range orders {
 		orderMap[order.ID()] = order
 	}
 
 	// Assert both orders were retrieved correctly
-	for _, original := range []*entities.StopOrder{order1, order2} {
+	for _, original := range []*order.StopOrder{order1, order2} {
 		retrieved, exists := orderMap[original.ID()]
 		assert.True(t, exists)
 		assert.Equal(t, original.Ticker(), retrieved.Ticker())
@@ -133,7 +134,7 @@ func TestStopOrderRepo_Persist_Update(t *testing.T) {
 	require.NoError(t, repo.Persist(stopOrder))
 
 	// Update status
-	status := entities.OrderStatusTriggered
+	status := order.OrderStatusTriggered
 	require.NoError(t, stopOrder.UpdateStatus(status))
 
 	// Persist update
@@ -143,7 +144,7 @@ func TestStopOrderRepo_Persist_Update(t *testing.T) {
 	retrieved, err := repo.GetByID(stopOrder.ID())
 	require.NoError(t, err)
 	require.NotNil(t, retrieved)
-	assert.Equal(t, entities.OrderStatusTriggered, retrieved.Status())
+	assert.Equal(t, order.OrderStatusTriggered, retrieved.Status())
 }
 
 func TestStopOrderRepo_Persist_NullLimitPrice(t *testing.T) {
@@ -152,14 +153,14 @@ func TestStopOrderRepo_Persist_NullLimitPrice(t *testing.T) {
 
 	repo := NewStopOrderRepoPostgres(testdb.db)
 
-	side, err := entities.NewSide("YES")
+	side, err := contract.NewSide("YES")
 	require.NoError(t, err)
 
-	triggerPrice, err := entities.NewContractPrice(50)
+	triggerPrice, err := contract.NewContractPrice(50)
 	require.NoError(t, err)
 
 	// Create order with nil limit price
-	stopOrder := entities.NewStopOrder(
+	stopOrder := order.NewStopOrder(
 		"TEST-2024",
 		side,
 		triggerPrice,

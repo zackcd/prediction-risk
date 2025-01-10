@@ -1,37 +1,37 @@
-package services
+package order
 
 import (
 	"fmt"
 	"log"
-	"prediction-risk/internal/domain/entities"
+	"prediction-risk/internal/domain/contract"
 	"prediction-risk/internal/infrastructure/external/kalshi"
 
 	"github.com/samber/lo"
 )
 
 type StopOrderRepo interface {
-	GetByID(orderId entities.OrderID) (*entities.StopOrder, error)
-	GetAll() ([]*entities.StopOrder, error)
-	Persist(stopOrder *entities.StopOrder) error
+	GetByID(orderId OrderID) (*StopOrder, error)
+	GetAll() ([]*StopOrder, error)
+	Persist(stopOrder *StopOrder) error
 }
 
 type StopOrderService interface {
-	GetOrder(orderId entities.OrderID) (*entities.StopOrder, error)
-	GetActiveOrders() ([]*entities.StopOrder, error)
-	CreateOrder(ticker string, side entities.Side, triggerPrice entities.ContractPrice, limitPrice *entities.ContractPrice) (*entities.StopOrder, error)
-	UpdateOrder(orderId entities.OrderID, triggerPrice *entities.ContractPrice, limitPrice *entities.ContractPrice) (*entities.StopOrder, error)
-	CancelOrder(orderId entities.OrderID) (*entities.StopOrder, error)
-	ExecuteOrder(orderId entities.OrderID, isDryRun bool) (*entities.StopOrder, error)
+	GetOrder(orderId OrderID) (*StopOrder, error)
+	GetActiveOrders() ([]*StopOrder, error)
+	CreateOrder(ticker string, side contract.Side, triggerPrice contract.ContractPrice, limitPrice *contract.ContractPrice) (*StopOrder, error)
+	UpdateOrder(orderId OrderID, triggerPrice *contract.ContractPrice, limitPrice *contract.ContractPrice) (*StopOrder, error)
+	CancelOrder(orderId OrderID) (*StopOrder, error)
+	ExecuteOrder(orderId OrderID, isDryRun bool) (*StopOrder, error)
 }
 
 type stopOrderService struct {
 	repo     StopOrderRepo
-	exchange ExchangeService
+	exchange ExchangeProvider
 }
 
 func NewStopOrderService(
 	repo StopOrderRepo,
-	exchange ExchangeService,
+	exchange ExchangeProvider,
 ) *stopOrderService {
 	return &stopOrderService{
 		repo:     repo,
@@ -40,8 +40,8 @@ func NewStopOrderService(
 }
 
 func (s *stopOrderService) GetOrder(
-	orderId entities.OrderID,
-) (*entities.StopOrder, error) {
+	orderId OrderID,
+) (*StopOrder, error) {
 	log.Printf("Getting stop order: %s", orderId)
 	order, err := s.repo.GetByID(orderId)
 	if err != nil {
@@ -51,7 +51,7 @@ func (s *stopOrderService) GetOrder(
 	return order, nil
 }
 
-func (s *stopOrderService) GetActiveOrders() ([]*entities.StopOrder, error) {
+func (s *stopOrderService) GetActiveOrders() ([]*StopOrder, error) {
 	log.Println("Getting all active stop orders")
 	orders, err := s.repo.GetAll()
 	if err != nil {
@@ -59,9 +59,9 @@ func (s *stopOrderService) GetActiveOrders() ([]*entities.StopOrder, error) {
 		return nil, err
 	}
 
-	activeOrders := make([]*entities.StopOrder, 0, len(orders))
+	activeOrders := make([]*StopOrder, 0, len(orders))
 	for _, order := range orders {
-		if order.Status() == entities.OrderStatusActive {
+		if order.Status() == OrderStatusActive {
 			activeOrders = append(activeOrders, order)
 		}
 	}
@@ -72,14 +72,14 @@ func (s *stopOrderService) GetActiveOrders() ([]*entities.StopOrder, error) {
 
 func (s *stopOrderService) CreateOrder(
 	ticker string,
-	side entities.Side,
-	triggerPrice entities.ContractPrice,
-	limitPrice *entities.ContractPrice,
-) (*entities.StopOrder, error) {
+	side contract.Side,
+	triggerPrice contract.ContractPrice,
+	limitPrice *contract.ContractPrice,
+) (*StopOrder, error) {
 	log.Printf("Creating stop order - ticker: %s, side: %s, trigger price: %d, limit price: %p",
 		ticker, side, triggerPrice.Value(), limitPrice)
 
-	order := entities.NewStopOrder(ticker, side, triggerPrice, limitPrice, nil)
+	order := NewStopOrder(ticker, side, triggerPrice, limitPrice, nil)
 	log.Printf("Created stop order %s", order.ID())
 
 	if err := s.repo.Persist(order); err != nil {
@@ -91,10 +91,10 @@ func (s *stopOrderService) CreateOrder(
 }
 
 func (s *stopOrderService) UpdateOrder(
-	orderId entities.OrderID,
-	triggerPrice *entities.ContractPrice,
-	limitPrice *entities.ContractPrice,
-) (*entities.StopOrder, error) {
+	orderId OrderID,
+	triggerPrice *contract.ContractPrice,
+	limitPrice *contract.ContractPrice,
+) (*StopOrder, error) {
 	log.Printf("Updating stop order %s", orderId)
 
 	order, err := s.repo.GetByID(orderId)
@@ -117,8 +117,8 @@ func (s *stopOrderService) UpdateOrder(
 }
 
 func (s *stopOrderService) CancelOrder(
-	orderId entities.OrderID,
-) (*entities.StopOrder, error) {
+	orderId OrderID,
+) (*StopOrder, error) {
 	log.Printf("Cancelling stop order %s", orderId)
 
 	order, err := s.repo.GetByID(orderId)
@@ -127,12 +127,12 @@ func (s *stopOrderService) CancelOrder(
 		return nil, err
 	}
 
-	if order.Status() != entities.OrderStatusActive {
+	if order.Status() != OrderStatusActive {
 		log.Printf("Cannot cancel order %s - invalid status: %s", order.ID(), order.Status())
 		return nil, fmt.Errorf("order %s has invalid status %s", order.ID(), order.Status())
 	}
 
-	order.UpdateStatus(entities.OrderStatusCancelled)
+	order.UpdateStatus(OrderStatusCancelled)
 
 	err = s.repo.Persist(order)
 	if err != nil {
@@ -144,9 +144,9 @@ func (s *stopOrderService) CancelOrder(
 }
 
 func (s *stopOrderService) ExecuteOrder(
-	orderId entities.OrderID,
+	orderId OrderID,
 	isDryRun bool,
-) (*entities.StopOrder, error) {
+) (*StopOrder, error) {
 	log.Printf("Executing stop order %s (dry run: %v)", orderId, isDryRun)
 
 	order, err := s.repo.GetByID(orderId)
@@ -188,7 +188,7 @@ func (s *stopOrderService) ExecuteOrder(
 
 	log.Printf("Successfully  executed stop order %s", order.ID())
 
-	order.UpdateStatus(entities.OrderStatusTriggered)
+	order.UpdateStatus(OrderStatusTriggered)
 	err = s.repo.Persist(order)
 	if err != nil {
 		log.Printf("Error persisting executed order %s: %v", order.ID(), err)

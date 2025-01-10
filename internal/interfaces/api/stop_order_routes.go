@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"prediction-risk/internal/domain/entities"
-	"prediction-risk/internal/domain/services"
+	"prediction-risk/internal/domain/contract"
+	"prediction-risk/internal/domain/core"
+	"prediction-risk/internal/domain/order"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -14,10 +15,10 @@ import (
 )
 
 type StopOrderRoutes struct {
-	service services.StopOrderService
+	service order.StopOrderService
 }
 
-func NewStopOrderRoutes(service services.StopOrderService) *StopOrderRoutes {
+func NewStopOrderRoutes(service order.StopOrderService) *StopOrderRoutes {
 	return &StopOrderRoutes{service: service}
 }
 
@@ -55,7 +56,7 @@ type StopOrderResponse struct {
 }
 
 // In api/mappers.go
-func ToStopOrderResponse(order *entities.StopOrder) StopOrderResponse {
+func ToStopOrderResponse(order *order.StopOrder) StopOrderResponse {
 	return StopOrderResponse{
 		ID:           order.ID().String(),
 		Ticker:       order.Ticker(),
@@ -74,23 +75,24 @@ func (r *StopOrderRoutes) CreateStopOrder(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	side, err := entities.NewSide(request.Side)
+	side, err := contract.NewSide(request.Side)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	triggerPrice, err := entities.NewContractPrice(request.TriggerPrice)
+	triggerPrice, err := contract.NewContractPrice(request.TriggerPrice)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	var limitPrice *entities.ContractPrice
+	var limitPrice *contract.ContractPrice
 	if request.LimitPrice != nil {
-		*limitPrice, err = entities.NewContractPrice(*request.LimitPrice)
+		cp, err := contract.NewContractPrice(*request.LimitPrice)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
+		limitPrice = &cp
 	}
 
 	order, err := r.service.CreateOrder(request.Ticker, side, triggerPrice, limitPrice)
@@ -111,7 +113,7 @@ func (r *StopOrderRoutes) ListStopOrders(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	response := lo.Map(orders, func(order *entities.StopOrder, _ int) StopOrderResponse {
+	response := lo.Map(orders, func(order *order.StopOrder, _ int) StopOrderResponse {
 		return ToStopOrderResponse(order)
 	})
 
@@ -128,7 +130,7 @@ func (r *StopOrderRoutes) GetStopOrder(w http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	order, err := r.service.GetOrder(entities.OrderID(orderID))
+	order, err := r.service.GetOrder(order.OrderID(orderID))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -159,9 +161,9 @@ func (r *StopOrderRoutes) UpdateStopOrder(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	var triggerPrice *entities.ContractPrice
+	var triggerPrice *contract.ContractPrice
 	if request.TriggerPrice != nil {
-		tp, err := entities.NewContractPrice(*request.TriggerPrice)
+		tp, err := contract.NewContractPrice(*request.TriggerPrice)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return // Don't forget to return after writing error
@@ -169,15 +171,16 @@ func (r *StopOrderRoutes) UpdateStopOrder(w http.ResponseWriter, req *http.Reque
 		triggerPrice = &tp
 	}
 
-	var limitPrice *entities.ContractPrice
+	var limitPrice *contract.ContractPrice
 	if request.LimitPrice != nil {
-		*limitPrice, err = entities.NewContractPrice(*request.LimitPrice)
+		cp, err := contract.NewContractPrice(*request.LimitPrice)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
+		limitPrice = &cp
 	}
 
-	order, err := r.service.UpdateOrder(entities.OrderID(orderID), triggerPrice, limitPrice)
+	order, err := r.service.UpdateOrder(order.OrderID(orderID), triggerPrice, limitPrice)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -197,9 +200,9 @@ func (r *StopOrderRoutes) CancelStopOrder(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	order, err := r.service.CancelOrder(entities.OrderID(orderID))
+	order, err := r.service.CancelOrder(order.OrderID(orderID))
 	if err != nil {
-		var notFoundErr *entities.ErrNotFound // Note the pointer type
+		var notFoundErr *core.ErrNotFound // Note the pointer type
 		if errors.As(err, &notFoundErr) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return

@@ -1,24 +1,26 @@
-package services
+package monitor
 
 import (
 	"fmt"
 	"log"
-	"prediction-risk/internal/domain/entities"
+	"prediction-risk/internal/domain/contract"
+	"prediction-risk/internal/domain/exchange"
+	"prediction-risk/internal/domain/order"
 	"prediction-risk/internal/infrastructure/external/kalshi"
 	"time"
 )
 
 type OrderMonitor struct {
-	stopOrderService StopOrderService
-	exchange         ExchangeService
+	stopOrderService order.StopOrderService
+	exchange         exchange.ExchangeService
 	interval         time.Duration
 	done             chan struct{}
 	isDryRun         bool
 }
 
 func NewOrderMonitor(
-	stopOrderService StopOrderService,
-	exchange ExchangeService,
+	stopOrderService order.StopOrderService,
+	exchange exchange.ExchangeService,
 	interval time.Duration,
 	isDryRun bool,
 ) *OrderMonitor {
@@ -81,7 +83,7 @@ func (m *OrderMonitor) checkOrders() error {
 
 		shouldExecute := m.shouldExecute(order, market)
 
-		if order.Side() == entities.SideYes {
+		if order.Side() == contract.SideYes {
 			log.Printf("Market %s YES bid: %d (threshold: %d)",
 				order.Ticker(),
 				market.YesBid,
@@ -111,11 +113,11 @@ func (m *OrderMonitor) checkOrders() error {
 	return nil
 }
 
-func (m *OrderMonitor) shouldExecute(order *entities.StopOrder, market *kalshi.Market) bool {
+func (m *OrderMonitor) shouldExecute(order *order.StopOrder, market *kalshi.Market) bool {
 	var bid int
-	if order.Side() == entities.SideYes {
+	if order.Side() == contract.SideYes {
 		bid = market.YesBid
-	} else if order.Side() == entities.SideNo {
+	} else if order.Side() == contract.SideNo {
 		bid = market.NoBid
 	}
 

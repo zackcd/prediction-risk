@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"prediction-risk/internal/domain/entities"
-	"prediction-risk/internal/domain/services/mocks"
+	"prediction-risk/internal/domain/contract"
+	"prediction-risk/internal/domain/core"
+	"prediction-risk/internal/domain/order"
+	"prediction-risk/internal/domain/order/mocks"
 	"testing"
 
 	"github.com/go-chi/chi"
@@ -30,13 +32,13 @@ func TestStopOrderRoutes(t *testing.T) {
 			// Arrange
 			router, mockService := setupTest()
 
-			threshold, err := entities.NewContractPrice(50)
+			threshold, err := contract.NewContractPrice(50)
 			assert.NoError(t, err)
 
 			// Create a properly initialized test order
-			expectedOrder := entities.NewStopOrder(
+			expectedOrder := order.NewStopOrder(
 				"AAPL-2024",
-				entities.SideYes,
+				contract.SideYes,
 				threshold,
 				nil,
 				nil,
@@ -44,9 +46,9 @@ func TestStopOrderRoutes(t *testing.T) {
 
 			mockService.On("CreateOrder",
 				"AAPL-2024",
-				entities.SideYes,
+				contract.SideYes,
 				threshold,
-				(*entities.ContractPrice)(nil),
+				(*contract.ContractPrice)(nil),
 			).Return(expectedOrder, nil)
 
 			request := CreateStopOrderRequest{
@@ -100,12 +102,12 @@ func TestStopOrderRoutes(t *testing.T) {
 			// Arrange
 			router, mockService := setupTest()
 
-			threshold, err := entities.NewContractPrice(50)
+			threshold, err := contract.NewContractPrice(50)
 			assert.NoError(t, err)
 			// Create a properly initialized test order
-			expectedOrder := entities.NewStopOrder(
+			expectedOrder := order.NewStopOrder(
 				"AAPL-2024",
-				entities.SideYes,
+				contract.SideYes,
 				threshold,
 				nil,
 				nil,
@@ -137,7 +139,7 @@ func TestStopOrderRoutes(t *testing.T) {
 		t.Run("returns 404 for non-existent order", func(t *testing.T) {
 			router, mockService := setupTest()
 
-			orderID := entities.NewOrderID()
+			orderID := order.NewOrderID()
 			mockService.On("GetOrder", orderID).Return(nil, nil)
 
 			rec := httptest.NewRecorder()
@@ -153,13 +155,13 @@ func TestStopOrderRoutes(t *testing.T) {
 			// Arrange
 			router, mockService := setupTest()
 
-			threshold, err := entities.NewContractPrice(50)
+			threshold, err := contract.NewContractPrice(50)
 			assert.NoError(t, err)
 
-			expectedOrder1 := entities.NewStopOrder("AAPL-2024", entities.SideYes, threshold, nil, nil)
-			expectedOrder2 := entities.NewStopOrder("MSFT-2024", entities.SideNo, threshold, nil, nil)
+			expectedOrder1 := order.NewStopOrder("AAPL-2024", contract.SideYes, threshold, nil, nil)
+			expectedOrder2 := order.NewStopOrder("MSFT-2024", contract.SideNo, threshold, nil, nil)
 
-			expectedOrders := []*entities.StopOrder{expectedOrder1, expectedOrder2}
+			expectedOrders := []*order.StopOrder{expectedOrder1, expectedOrder2}
 			mockService.On("GetActiveOrders").Return(expectedOrders, nil)
 
 			// Act
@@ -207,16 +209,16 @@ func TestStopOrderRoutes(t *testing.T) {
 			// Arrange
 			router, mockService := setupTest()
 
-			initialThreshold, err := entities.NewContractPrice(50)
+			initialThreshold, err := contract.NewContractPrice(50)
 			assert.NoError(t, err)
-			newThreshold, err := entities.NewContractPrice(60)
+			newThreshold, err := contract.NewContractPrice(60)
 			assert.NoError(t, err)
 
-			existingOrder := entities.NewStopOrder("AAPL-2024", entities.SideYes, initialThreshold, nil, nil)
+			existingOrder := order.NewStopOrder("AAPL-2024", contract.SideYes, initialThreshold, nil, nil)
 			updatedOrder := existingOrder
 			updatedOrder.SetTriggerPrice(newThreshold)
 
-			mockService.On("UpdateOrder", existingOrder.ID(), &newThreshold, (*entities.ContractPrice)(nil)).Return(updatedOrder, nil)
+			mockService.On("UpdateOrder", existingOrder.ID(), &newThreshold, (*contract.ContractPrice)(nil)).Return(updatedOrder, nil)
 
 			price := 60
 			request := UpdateStopOrderRequest{
@@ -248,7 +250,7 @@ func TestStopOrderRoutes(t *testing.T) {
 		t.Run("handles invalid threshold", func(t *testing.T) {
 			// Arrange
 			router, mockService := setupTest()
-			orderId := entities.NewOrderID()
+			orderId := order.NewOrderID()
 
 			price := 101
 			request := UpdateStopOrderRequest{
@@ -277,12 +279,12 @@ func TestStopOrderRoutes(t *testing.T) {
 			// Arrange
 			router, mockService := setupTest()
 
-			threshold, err := entities.NewContractPrice(50)
+			threshold, err := contract.NewContractPrice(50)
 			assert.NoError(t, err)
 
-			existingOrder := entities.NewStopOrder("AAPL-2024", entities.SideYes, threshold, nil, nil)
-			cancelledOrder := entities.NewStopOrder("AAPL-2024", entities.SideYes, threshold, nil, nil)
-			cancelledOrder.UpdateStatus(entities.OrderStatusCancelled)
+			existingOrder := order.NewStopOrder("AAPL-2024", contract.SideYes, threshold, nil, nil)
+			cancelledOrder := order.NewStopOrder("AAPL-2024", contract.SideYes, threshold, nil, nil)
+			cancelledOrder.UpdateStatus(order.OrderStatusCancelled)
 
 			mockService.On("CancelOrder", existingOrder.ID()).Return(cancelledOrder, nil)
 
@@ -310,8 +312,8 @@ func TestStopOrderRoutes(t *testing.T) {
 		t.Run("handles non-existent order", func(t *testing.T) {
 			router, mockService := setupTest()
 
-			nonExistentID := entities.NewOrderID()
-			mockService.On("CancelOrder", nonExistentID).Return(nil, entities.NewErrNotFound("StopOrder", nonExistentID.String()))
+			nonExistentID := order.NewOrderID()
+			mockService.On("CancelOrder", nonExistentID).Return(nil, core.NewErrNotFound("StopOrder", nonExistentID.String()))
 
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(

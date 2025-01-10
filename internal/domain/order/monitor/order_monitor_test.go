@@ -1,8 +1,10 @@
-package services
+package monitor
 
 import (
-	"prediction-risk/internal/domain/entities"
-	"prediction-risk/internal/domain/services/mocks"
+	"prediction-risk/internal/domain/contract"
+	exchangeMocks "prediction-risk/internal/domain/exchange/mocks"
+	"prediction-risk/internal/domain/order"
+	orderMocks "prediction-risk/internal/domain/order/mocks"
 	"prediction-risk/internal/infrastructure/external/kalshi"
 	"testing"
 	"time"
@@ -13,11 +15,11 @@ import (
 func TestStopLossMonitor(t *testing.T) {
 	t.Run("should execute YES stop loss when bid drops below threshold", func(t *testing.T) {
 		// Arrange
-		mockStopOrder := new(mocks.MockStopOrderService)
-		mockExchange := new(mocks.MockExchangeService)
+		mockStopOrder := new(orderMocks.MockStopOrderService)
+		mockExchange := new(exchangeMocks.MockExchangeService)
 
-		threshold, _ := entities.NewContractPrice(60)
-		order := entities.NewStopOrder("MARKET-1", entities.SideYes, threshold, nil, nil)
+		threshold, _ := contract.NewContractPrice(60)
+		newOrder := order.NewStopOrder("MARKET-1", contract.SideYes, threshold, nil, nil)
 
 		market := &kalshi.Market{
 			Ticker: "MARKET-1",
@@ -25,8 +27,8 @@ func TestStopLossMonitor(t *testing.T) {
 			YesAsk: 56,
 		}
 
-		mockStopOrder.On("GetActiveOrders").Return([]*entities.StopOrder{order}, nil)
-		mockStopOrder.On("ExecuteOrder", order.ID(), false).Return(order, nil)
+		mockStopOrder.On("GetActiveOrders").Return([]*order.StopOrder{newOrder}, nil)
+		mockStopOrder.On("ExecuteOrder", newOrder.ID(), false).Return(newOrder, nil)
 		mockExchange.On("GetMarket", "MARKET-1").Return(market, nil)
 
 		monitor := NewOrderMonitor(mockStopOrder, mockExchange, time.Second, false)
@@ -42,11 +44,11 @@ func TestStopLossMonitor(t *testing.T) {
 
 	t.Run("should execute NO stop loss when bid drops below threshold", func(t *testing.T) {
 		// Arrange
-		mockStopOrder := new(mocks.MockStopOrderService)
-		mockExchange := new(mocks.MockExchangeService)
+		mockStopOrder := new(orderMocks.MockStopOrderService)
+		mockExchange := new(exchangeMocks.MockExchangeService)
 
-		threshold, _ := entities.NewContractPrice(60)
-		order := entities.NewStopOrder("MARKET-1", entities.SideNo, threshold, nil, nil)
+		threshold, _ := contract.NewContractPrice(60)
+		newOrder := order.NewStopOrder("MARKET-1", contract.SideNo, threshold, nil, nil)
 
 		market := &kalshi.Market{
 			Ticker: "MARKET-1",
@@ -54,8 +56,8 @@ func TestStopLossMonitor(t *testing.T) {
 			NoAsk:  56,
 		}
 
-		mockStopOrder.On("GetActiveOrders").Return([]*entities.StopOrder{order}, nil)
-		mockStopOrder.On("ExecuteOrder", order.ID(), false).Return(order, nil)
+		mockStopOrder.On("GetActiveOrders").Return([]*order.StopOrder{newOrder}, nil)
+		mockStopOrder.On("ExecuteOrder", newOrder.ID(), false).Return(newOrder, nil)
 		mockExchange.On("GetMarket", "MARKET-1").Return(market, nil)
 
 		monitor := NewOrderMonitor(mockStopOrder, mockExchange, time.Second, false)
@@ -71,11 +73,11 @@ func TestStopLossMonitor(t *testing.T) {
 
 	t.Run("should not execute when bid is above threshold", func(t *testing.T) {
 		// Arrange
-		mockStopOrder := new(mocks.MockStopOrderService)
-		mockExchange := new(mocks.MockExchangeService)
+		mockStopOrder := new(orderMocks.MockStopOrderService)
+		mockExchange := new(exchangeMocks.MockExchangeService)
 
-		threshold, _ := entities.NewContractPrice(60)
-		order := entities.NewStopOrder("MARKET-1", entities.SideYes, threshold, nil, nil)
+		threshold, _ := contract.NewContractPrice(60)
+		newOrder := order.NewStopOrder("MARKET-1", contract.SideYes, threshold, nil, nil)
 
 		market := &kalshi.Market{
 			Ticker: "MARKET-1",
@@ -83,7 +85,7 @@ func TestStopLossMonitor(t *testing.T) {
 			YesAsk: 66,
 		}
 
-		mockStopOrder.On("GetActiveOrders").Return([]*entities.StopOrder{order}, nil)
+		mockStopOrder.On("GetActiveOrders").Return([]*order.StopOrder{newOrder}, nil)
 		mockExchange.On("GetMarket", "MARKET-1").Return(market, nil)
 		// Note: ExecuteOrder should not be called
 
@@ -100,13 +102,13 @@ func TestStopLossMonitor(t *testing.T) {
 
 	t.Run("should handle market fetch error", func(t *testing.T) {
 		// Arrange
-		mockStopOrder := new(mocks.MockStopOrderService)
-		mockExchange := new(mocks.MockExchangeService)
+		mockStopOrder := new(orderMocks.MockStopOrderService)
+		mockExchange := new(exchangeMocks.MockExchangeService)
 
-		threshold, _ := entities.NewContractPrice(60)
-		order := entities.NewStopOrder("MARKET-1", entities.SideYes, threshold, nil, nil)
+		threshold, _ := contract.NewContractPrice(60)
+		newOrder := order.NewStopOrder("MARKET-1", contract.SideYes, threshold, nil, nil)
 
-		mockStopOrder.On("GetActiveOrders").Return([]*entities.StopOrder{order}, nil)
+		mockStopOrder.On("GetActiveOrders").Return([]*order.StopOrder{newOrder}, nil)
 		mockExchange.On("GetMarket", "MARKET-1").Return(nil, assert.AnError)
 
 		monitor := NewOrderMonitor(mockStopOrder, mockExchange, time.Second, false)
@@ -122,8 +124,8 @@ func TestStopLossMonitor(t *testing.T) {
 
 	t.Run("should handle GetActiveOrders error", func(t *testing.T) {
 		// Arrange
-		mockStopOrder := new(mocks.MockStopOrderService)
-		mockExchange := new(mocks.MockExchangeService)
+		mockStopOrder := new(orderMocks.MockStopOrderService)
+		mockExchange := new(exchangeMocks.MockExchangeService)
 
 		mockStopOrder.On("GetActiveOrders").Return(nil, assert.AnError)
 

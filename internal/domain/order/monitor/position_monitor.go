@@ -1,23 +1,25 @@
-package services
+package monitor
 
 import (
 	"fmt"
 	"log"
-	"prediction-risk/internal/domain/entities"
+	"prediction-risk/internal/domain/contract"
+	"prediction-risk/internal/domain/exchange"
+	"prediction-risk/internal/domain/order"
 	"prediction-risk/internal/infrastructure/external/kalshi"
 	"time"
 )
 
 type PositionMonitor struct {
-	exchangeService  ExchangeService
-	stopOrderService StopOrderService
+	exchangeService  exchange.ExchangeService
+	stopOrderService order.StopOrderService
 	interval         time.Duration
 	done             chan struct{}
 }
 
 func NewPositionMonitor(
-	exchangeService ExchangeService,
-	stopOrderService StopOrderService,
+	exchangeService exchange.ExchangeService,
+	stopOrderService order.StopOrderService,
 	interval time.Duration,
 ) *PositionMonitor {
 	log.Printf("Initializing PositionMonitor with interval: %v", interval)
@@ -77,7 +79,7 @@ func (m *PositionMonitor) syncPositions() error {
 	log.Printf("Found %d active stop orders", len(activeOrders))
 
 	// Create mapping of stop orders by ticker - buying Sides offset so we don't need to key by side
-	ordersByTicker := make(map[string]*entities.StopOrder)
+	ordersByTicker := make(map[string]*order.StopOrder)
 	for _, order := range activeOrders {
 		ordersByTicker[order.Ticker()] = order
 	}
@@ -108,11 +110,11 @@ func (m *PositionMonitor) syncPositions() error {
 			}
 
 			// Determine side based on position
-			var side entities.Side
+			var side contract.Side
 			if position.Position > 0 {
-				side = entities.SideYes
+				side = contract.SideYes
 			} else {
-				side = entities.SideNo
+				side = contract.SideNo
 			}
 
 			if _, err := m.stopOrderService.CreateOrder(
@@ -147,14 +149,14 @@ func (m *PositionMonitor) syncPositions() error {
 	return nil
 }
 
-func (m *PositionMonitor) calculateStopPrice(position kalshi.MarketPosition) (entities.ContractPrice, error) {
+func (m *PositionMonitor) calculateStopPrice(position kalshi.MarketPosition) (contract.ContractPrice, error) {
 	market, err := m.exchangeService.GetMarket(position.Ticker)
 	if err != nil {
-		return entities.ContractPrice(0), fmt.Errorf("getting market data: %w", err)
+		return contract.ContractPrice(0), fmt.Errorf("getting market data: %w", err)
 	}
 
 	// Example: Set stop loss 10% away from current price -- TODO: move to config
 	stopPrice := market.LastPrice
 	stopPrice = int(float64(market.LastPrice) * 0.9)
-	return entities.NewContractPrice(stopPrice)
+	return contract.NewContractPrice(stopPrice)
 }

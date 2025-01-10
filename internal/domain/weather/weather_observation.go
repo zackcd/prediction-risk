@@ -1,8 +1,7 @@
-package services
+package weather
 
 import (
 	"fmt"
-	"prediction-risk/internal/domain/entities/weather"
 	"prediction-risk/internal/infrastructure/external/nws"
 	"time"
 
@@ -10,9 +9,9 @@ import (
 )
 
 type TemperatureObservationRepo interface {
-	Get(filter *weather.TemperatureObservationFilter) ([]*weather.TemperatureObservation, error)
-	GetLatestByStation(stationID weather.StationID) (*weather.TemperatureObservation, error)
-	Persist(observation *weather.TemperatureObservation) error
+	Get(filter *TemperatureObservationFilter) ([]*TemperatureObservation, error)
+	GetLatestByStation(stationID StationID) (*TemperatureObservation, error)
+	Persist(observation *TemperatureObservation) error
 }
 
 type WeatherObservationService interface{}
@@ -41,8 +40,8 @@ func NewWeatherObservationService(
 
 // RetrieveLatestObservation gets and stores the latest observation for a station
 func (s *weatherObservationService) RetrieveLatestObservation(
-	stationID weather.StationID,
-) (*weather.TemperatureObservation, error) {
+	stationID StationID,
+) (*TemperatureObservation, error) {
 	observation, err := s.nwsClient.Station.GetLatestObservations(stationID.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve latest observations from NWS: %w", err)
@@ -57,11 +56,11 @@ func (s *weatherObservationService) RetrieveLatestObservation(
 	if temperatureProperty.UnitCode != "wmoUnit:degC" {
 		return nil, fmt.Errorf("unsupported temperature unit from NWS: %s", temperatureProperty.UnitCode)
 	}
-	temperature := weather.Temperature{
+	temperature := Temperature{
 		Value:           temperatureProperty.Value,
-		TemperatureUnit: weather.Celsius,
+		TemperatureUnit: Celsius,
 	}
-	temperatureObservation := weather.NewTemperatureObservation(stationID, temperature, observation.Properties.Timestamp)
+	temperatureObservation := NewTemperatureObservation(stationID, temperature, observation.Properties.Timestamp)
 
 	if err := s.temperatureObservationRepo.Persist(temperatureObservation); err != nil {
 		return nil, fmt.Errorf("storing temperature observation: %w", err)
@@ -72,10 +71,10 @@ func (s *weatherObservationService) RetrieveLatestObservation(
 
 // RetrieveObservationsInRange gets and stores observations within a specific time range
 func (s *weatherObservationService) RetrieveObservationsInRange(
-	stationID weather.StationID,
+	stationID StationID,
 	startTime time.Time,
 	endTime time.Time,
-) ([]*weather.TemperatureObservation, *RetrievalStats, error) {
+) ([]*TemperatureObservation, *RetrievalStats, error) {
 	params := nws.ObservationQueryParams{
 		Start: &startTime,
 		End:   &endTime,
@@ -91,7 +90,7 @@ func (s *weatherObservationService) RetrieveObservationsInRange(
 	}
 
 	// Process all observations and track missing data
-	results := lo.FilterMap(observations.Features, func(obs nws.Observation, _ int) (*weather.TemperatureObservation, bool) {
+	results := lo.FilterMap(observations.Features, func(obs nws.Observation, _ int) (*TemperatureObservation, bool) {
 		if obs.Properties.Temperature == nil {
 			stats.MissingTemperature++
 			fmt.Printf("Missing temperature data for station %s at %v\n",
@@ -104,11 +103,11 @@ func (s *weatherObservationService) RetrieveObservationsInRange(
 			return nil, false
 		}
 
-		temperature := weather.Temperature{
+		temperature := Temperature{
 			Value:           obs.Properties.Temperature.Value,
-			TemperatureUnit: weather.Celsius,
+			TemperatureUnit: Celsius,
 		}
-		return weather.NewTemperatureObservation(stationID, temperature, obs.Properties.Timestamp), true
+		return NewTemperatureObservation(stationID, temperature, obs.Properties.Timestamp), true
 	})
 
 	// Store the observations and track any errors
@@ -133,7 +132,7 @@ func (s *weatherObservationService) RetrieveObservationsInRange(
 
 // GetLatestTemperature retrieves the most recent stored observation for a station
 func (s *weatherObservationService) GetLatestTemperature(
-	stationID weather.StationID,
-) (*weather.TemperatureObservation, error) {
+	stationID StationID,
+) (*TemperatureObservation, error) {
 	return s.temperatureObservationRepo.GetLatestByStation(stationID)
 }

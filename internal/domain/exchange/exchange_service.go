@@ -1,14 +1,14 @@
-package services
+package exchange
 
 import (
-	"prediction-risk/internal/domain/entities"
+	"prediction-risk/internal/domain/contract"
 	"prediction-risk/internal/infrastructure/external/kalshi"
 )
 
 type ExchangeService interface {
 	GetMarket(ticker string) (*kalshi.Market, error)
 	GetPositions() (*kalshi.PositionsResult, error)
-	CreateSellOrder(ticker string, count int, side entities.Side, orderID string, limitPrice *entities.ContractPrice) (*entities.ExchangeOrder, error)
+	CreateSellOrder(ticker string, count int, side contract.Side, orderID string, limitPrice *contract.ContractPrice) (*ExchangeOrder, error)
 }
 
 type MarketGetter interface {
@@ -52,12 +52,12 @@ func (es *exchangeService) GetPositions() (*kalshi.PositionsResult, error) {
 func (es *exchangeService) CreateSellOrder(
 	ticker string,
 	count int,
-	side entities.Side,
+	side contract.Side,
 	orderID string,
-	limitPrice *entities.ContractPrice,
-) (*entities.ExchangeOrder, error) {
+	limitPrice *contract.ContractPrice,
+) (*ExchangeOrder, error) {
 	var orderSide kalshi.OrderSide
-	if side == entities.SideYes {
+	if side == contract.SideYes {
 		orderSide = kalshi.OrderSideYes
 	} else {
 		orderSide = kalshi.OrderSideNo
@@ -69,7 +69,7 @@ func (es *exchangeService) CreateSellOrder(
 	if limitPrice != nil {
 		orderType = "limit"
 		value := limitPrice.Value()
-		if side == entities.SideYes {
+		if side == contract.SideYes {
 			yesPrice = &value
 		} else {
 			noPrice = &value
@@ -93,14 +93,14 @@ func (es *exchangeService) CreateSellOrder(
 		return nil, err
 	}
 
-	return &entities.ExchangeOrder{
+	return &ExchangeOrder{
 		ExchangeOrderID: resp.Order.ID,
-		Exchange:        entities.ExchangeKalshi,
+		Exchange:        ExchangeKalshi,
 		InternalOrderID: resp.Order.ClientOrderID,
 		Ticker:          resp.Order.Ticker,
 		Side:            side,
-		Action:          entities.OrderActionSell,
-		OrderType:       entities.OrderTypeMarket,
+		Action:          OrderActionSell,
+		OrderType:       OrderTypeMarket,
 		Status:          resp.Order.Status,
 	}, nil
 }

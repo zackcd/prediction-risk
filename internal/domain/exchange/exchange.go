@@ -1,4 +1,6 @@
-package entities
+package exchange
+
+import "prediction-risk/internal/domain/contract"
 
 type Exchange string
 
@@ -25,7 +27,7 @@ type ExchangeOrder struct {
 	Exchange        Exchange
 	InternalOrderID string
 	Ticker          string
-	Side            Side
+	Side            contract.Side
 	Action          OrderAction
 	OrderType       ExchangeOrderType
 	Status          string

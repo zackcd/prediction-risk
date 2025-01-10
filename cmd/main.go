@@ -8,7 +8,9 @@ import (
 	"log"
 	"net/http"
 	"prediction-risk/internal/config"
-	"prediction-risk/internal/domain/services"
+	"prediction-risk/internal/domain/exchange"
+	"prediction-risk/internal/domain/order"
+	"prediction-risk/internal/domain/order/monitor"
 	"prediction-risk/internal/infrastructure/external/kalshi"
 	"prediction-risk/internal/infrastructure/repositories/postgres"
 	"prediction-risk/internal/interfaces/api"
@@ -54,15 +56,15 @@ func main() {
 	defer db.Close()
 
 	stopOrderRepo := postgres.NewStopOrderRepoPostgres(db)
-	exchangeService := services.NewExchangeService(kalshiClient.Market, kalshiClient.Portfolio)
-	stopOrderService := services.NewStopOrderService(stopOrderRepo, exchangeService)
-	positionMonitor := services.NewPositionMonitor(exchangeService, stopOrderService, 5*time.Second)
-	orderMonitor := services.NewOrderMonitor(stopOrderService, exchangeService, 5*time.Second, config.IsDryRun)
+	exchangeService := exchange.NewExchangeService(kalshiClient.Market, kalshiClient.Portfolio)
+	stopOrderService := order.NewStopOrderService(stopOrderRepo, exchangeService)
+	positionMonitor := monitor.NewPositionMonitor(exchangeService, stopOrderService, 5*time.Second)
+	orderMonitor := monitor.NewOrderMonitor(stopOrderService, exchangeService, 5*time.Second, config.IsDryRun)
 
 	// Run monitors
-	monitors := []services.Monitor{positionMonitor, orderMonitor}
+	monitors := []monitor.Monitor{positionMonitor, orderMonitor}
 	for _, m := range monitors {
-		services.RunMonitor(m)
+		monitor.RunMonitor(m)
 	}
 
 	// Setup router

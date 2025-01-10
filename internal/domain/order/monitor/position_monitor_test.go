@@ -1,8 +1,10 @@
-package services
+package monitor
 
 import (
-	"prediction-risk/internal/domain/entities"
-	"prediction-risk/internal/domain/services/mocks"
+	"prediction-risk/internal/domain/contract"
+	exchangeMocks "prediction-risk/internal/domain/exchange/mocks"
+	"prediction-risk/internal/domain/order"
+	orderMocks "prediction-risk/internal/domain/order/mocks"
 	"prediction-risk/internal/infrastructure/external/kalshi"
 	"testing"
 	"time"
@@ -13,14 +15,14 @@ import (
 func TestPositionMonitor(t *testing.T) {
 	t.Run("lifecycle", func(t *testing.T) {
 		// Test basic start/stop functionality
-		mockExchange := new(mocks.MockExchangeService)
-		mockStopOrder := new(mocks.MockStopOrderService)
+		mockExchange := new(exchangeMocks.MockExchangeService)
+		mockStopOrder := new(orderMocks.MockStopOrderService)
 
 		// Setup initial sync expectations
 		mockExchange.On("GetPositions").Return(&kalshi.PositionsResult{
 			MarketPositions: []kalshi.MarketPosition{},
 		}, nil).Once()
-		mockStopOrder.On("GetActiveOrders").Return([]*entities.StopOrder{}, nil).Once()
+		mockStopOrder.On("GetActiveOrders").Return([]*order.StopOrder{}, nil).Once()
 
 		monitor := NewPositionMonitor(mockExchange, mockStopOrder, time.Millisecond*100)
 		monitor.Start()
@@ -32,8 +34,8 @@ func TestPositionMonitor(t *testing.T) {
 	})
 
 	t.Run("creates stop orders for new positions", func(t *testing.T) {
-		mockExchange := new(mocks.MockExchangeService)
-		mockStopOrder := new(mocks.MockStopOrderService)
+		mockExchange := new(exchangeMocks.MockExchangeService)
+		mockStopOrder := new(orderMocks.MockStopOrderService)
 
 		// Setup market data for stop price calculation
 		mockExchange.On("GetMarket", "AAPL").Return(&kalshi.Market{
@@ -48,16 +50,16 @@ func TestPositionMonitor(t *testing.T) {
 		}, nil)
 
 		// No existing stop orders
-		mockStopOrder.On("GetActiveOrders").Return([]*entities.StopOrder{}, nil)
+		mockStopOrder.On("GetActiveOrders").Return([]*order.StopOrder{}, nil)
 
 		// Expect creation of new stop order
-		stopPrice, _ := entities.NewContractPrice(90) // 90 is 10% below 100
+		stopPrice, _ := contract.NewContractPrice(90) // 90 is 10% below 100
 		mockStopOrder.On("CreateOrder",
 			"AAPL",
-			entities.SideYes,
+			contract.SideYes,
 			stopPrice,
-			(*entities.ContractPrice)(nil),
-		).Return(&entities.StopOrder{}, nil)
+			(*contract.ContractPrice)(nil),
+		).Return(&order.StopOrder{}, nil)
 
 		monitor := NewPositionMonitor(mockExchange, mockStopOrder, time.Second)
 		monitor.syncPositions() // Test single sync
@@ -67,8 +69,8 @@ func TestPositionMonitor(t *testing.T) {
 	})
 
 	t.Run("handles short positions correctly", func(t *testing.T) {
-		mockExchange := new(mocks.MockExchangeService)
-		mockStopOrder := new(mocks.MockStopOrderService)
+		mockExchange := new(exchangeMocks.MockExchangeService)
+		mockStopOrder := new(orderMocks.MockStopOrderService)
 
 		mockExchange.On("GetMarket", "AAPL").Return(&kalshi.Market{
 			LastPrice: 100,
@@ -80,15 +82,15 @@ func TestPositionMonitor(t *testing.T) {
 			},
 		}, nil)
 
-		mockStopOrder.On("GetActiveOrders").Return([]*entities.StopOrder{}, nil)
+		mockStopOrder.On("GetActiveOrders").Return([]*order.StopOrder{}, nil)
 
-		stopPrice, _ := entities.NewContractPrice(90)
+		stopPrice, _ := contract.NewContractPrice(90)
 		mockStopOrder.On("CreateOrder",
 			"AAPL",
-			entities.SideNo,
+			contract.SideNo,
 			stopPrice,
-			(*entities.ContractPrice)(nil),
-		).Return(&entities.StopOrder{}, nil)
+			(*contract.ContractPrice)(nil),
+		).Return(&order.StopOrder{}, nil)
 
 		monitor := NewPositionMonitor(mockExchange, mockStopOrder, time.Second)
 		monitor.syncPositions()
@@ -98,13 +100,12 @@ func TestPositionMonitor(t *testing.T) {
 	})
 
 	t.Run("cancels stop orders for closed positions", func(t *testing.T) {
-		mockExchange := new(mocks.MockExchangeService)
-		mockStopOrder := new(mocks.MockStopOrderService)
+		mockExchange := new(exchangeMocks.MockExchangeService)
+		mockStopOrder := new(orderMocks.MockStopOrderService)
 
-		orderID := entities.NewOrderID()
-		price, err := entities.NewContractPrice(90)
+		price, err := contract.NewContractPrice(90)
 		assert.NoError(t, err)
-		existingOrder := entities.NewStopOrder("AAPL", entities.SideYes, price, nil, &orderID)
+		existingOrder := order.NewStopOrder("AAPL", contract.SideYes, price, nil, nil)
 
 		mockExchange.On("GetPositions").Return(&kalshi.PositionsResult{
 			MarketPositions: []kalshi.MarketPosition{
@@ -112,11 +113,11 @@ func TestPositionMonitor(t *testing.T) {
 			},
 		}, nil)
 
-		mockStopOrder.On("GetActiveOrders").Return([]*entities.StopOrder{
+		mockStopOrder.On("GetActiveOrders").Return([]*order.StopOrder{
 			existingOrder,
 		}, nil)
 
-		mockStopOrder.On("CancelOrder", orderID).Return(existingOrder, nil)
+		mockStopOrder.On("CancelOrder", existingOrder.ID()).Return(existingOrder, nil)
 
 		monitor := NewPositionMonitor(mockExchange, mockStopOrder, time.Second)
 		monitor.syncPositions()
@@ -126,13 +127,12 @@ func TestPositionMonitor(t *testing.T) {
 	})
 
 	t.Run("cancels orphaned stop orders", func(t *testing.T) {
-		mockExchange := new(mocks.MockExchangeService)
-		mockStopOrder := new(mocks.MockStopOrderService)
+		mockExchange := new(exchangeMocks.MockExchangeService)
+		mockStopOrder := new(orderMocks.MockStopOrderService)
 
-		orderID := entities.NewOrderID()
-		price, err := entities.NewContractPrice(90)
+		price, err := contract.NewContractPrice(90)
 		assert.NoError(t, err)
-		existingOrder := entities.NewStopOrder("AAPL", entities.SideYes, price, nil, &orderID)
+		existingOrder := order.NewStopOrder("AAPL", contract.SideYes, price, nil, nil)
 
 		// No positions returned from exchange
 		mockExchange.On("GetPositions").Return(&kalshi.PositionsResult{
@@ -140,11 +140,11 @@ func TestPositionMonitor(t *testing.T) {
 		}, nil)
 
 		// But we have an active stop order
-		mockStopOrder.On("GetActiveOrders").Return([]*entities.StopOrder{
+		mockStopOrder.On("GetActiveOrders").Return([]*order.StopOrder{
 			existingOrder,
 		}, nil)
 
-		mockStopOrder.On("CancelOrder", orderID).Return(existingOrder, nil)
+		mockStopOrder.On("CancelOrder", existingOrder.ID()).Return(existingOrder, nil)
 
 		monitor := NewPositionMonitor(mockExchange, mockStopOrder, time.Second)
 		monitor.syncPositions()
@@ -154,8 +154,8 @@ func TestPositionMonitor(t *testing.T) {
 	})
 
 	t.Run("handles exchange errors gracefully", func(t *testing.T) {
-		mockExchange := new(mocks.MockExchangeService)
-		mockStopOrder := new(mocks.MockStopOrderService)
+		mockExchange := new(exchangeMocks.MockExchangeService)
+		mockStopOrder := new(orderMocks.MockStopOrderService)
 
 		mockExchange.On("GetPositions").Return((*kalshi.PositionsResult)(nil),
 			assert.AnError)
@@ -169,8 +169,8 @@ func TestPositionMonitor(t *testing.T) {
 	})
 
 	t.Run("handles stop order service errors gracefully", func(t *testing.T) {
-		mockExchange := new(mocks.MockExchangeService)
-		mockStopOrder := new(mocks.MockStopOrderService)
+		mockExchange := new(exchangeMocks.MockExchangeService)
+		mockStopOrder := new(orderMocks.MockStopOrderService)
 
 		mockExchange.On("GetPositions").Return(&kalshi.PositionsResult{
 			MarketPositions: []kalshi.MarketPosition{

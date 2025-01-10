@@ -1,7 +1,7 @@
-package services
+package exchange
 
 import (
-	"prediction-risk/internal/domain/entities"
+	"prediction-risk/internal/domain/contract"
 	"prediction-risk/internal/infrastructure/external/kalshi"
 	"testing"
 	"time"
@@ -175,17 +175,17 @@ func TestCreateSellOrder(t *testing.T) {
 		name        string
 		ticker      string
 		count       int
-		side        entities.Side
+		side        contract.Side
 		orderID     string
 		mockSetup   func(*mockPortfolioManager)
 		expectError bool
-		expectOrder *entities.ExchangeOrder
+		expectOrder *ExchangeOrder
 	}{
 		{
 			name:    "successful yes sell order",
 			ticker:  "TEST-MKT",
 			count:   5,
-			side:    entities.SideYes,
+			side:    contract.SideYes,
 			orderID: "order-123",
 			mockSetup: func(m *mockPortfolioManager) {
 				expectedRequest := kalshi.CreateOrderRequest{
@@ -210,14 +210,14 @@ func TestCreateSellOrder(t *testing.T) {
 				}, nil)
 			},
 			expectError: false,
-			expectOrder: &entities.ExchangeOrder{
+			expectOrder: &ExchangeOrder{
 				ExchangeOrderID: "exchange-123",
-				Exchange:        entities.ExchangeKalshi,
+				Exchange:        ExchangeKalshi,
 				InternalOrderID: "order-123",
 				Ticker:          "TEST-MKT",
-				Side:            entities.SideYes,
-				Action:          entities.OrderActionSell,
-				OrderType:       entities.OrderTypeMarket,
+				Side:            contract.SideYes,
+				Action:          OrderActionSell,
+				OrderType:       OrderTypeMarket,
 				Status:          "open",
 			},
 		},
@@ -225,7 +225,7 @@ func TestCreateSellOrder(t *testing.T) {
 			name:    "successful no sell order",
 			ticker:  "TEST-MKT",
 			count:   5,
-			side:    entities.SideNo,
+			side:    contract.SideNo,
 			orderID: "order-123",
 			mockSetup: func(m *mockPortfolioManager) {
 				expectedRequest := kalshi.CreateOrderRequest{
@@ -250,14 +250,14 @@ func TestCreateSellOrder(t *testing.T) {
 				}, nil)
 			},
 			expectError: false,
-			expectOrder: &entities.ExchangeOrder{
+			expectOrder: &ExchangeOrder{
 				ExchangeOrderID: "exchange-123",
-				Exchange:        entities.ExchangeKalshi,
+				Exchange:        ExchangeKalshi,
 				InternalOrderID: "order-123",
 				Ticker:          "TEST-MKT",
-				Side:            entities.SideNo,
-				Action:          entities.OrderActionSell,
-				OrderType:       entities.OrderTypeMarket,
+				Side:            contract.SideNo,
+				Action:          OrderActionSell,
+				OrderType:       OrderTypeMarket,
 				Status:          "open",
 			},
 		},
@@ -265,7 +265,7 @@ func TestCreateSellOrder(t *testing.T) {
 			name:    "api error",
 			ticker:  "TEST-MKT",
 			count:   5,
-			side:    entities.SideYes,
+			side:    contract.SideYes,
 			orderID: "order-123",
 			mockSetup: func(m *mockPortfolioManager) {
 				expectedRequest := kalshi.CreateOrderRequest{
