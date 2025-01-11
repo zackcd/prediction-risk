@@ -1,7 +1,7 @@
 package nws_test // Use _test package to ensure we're testing the public API
 
 import (
-	"prediction-risk/internal/infrastructure/external/nws"
+	"prediction-risk/internal/app/weather/infrastructure/nws"
 	"testing"
 	"time"
 

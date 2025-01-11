@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"prediction-risk/internal/domain/contract"
-	"prediction-risk/internal/domain/core"
-	"prediction-risk/internal/domain/order"
+	"prediction-risk/internal/app/contract"
+	"prediction-risk/internal/app/core"
+	trigger_domain "prediction-risk/internal/app/risk/trigger/domain"
+	trigger_service "prediction-risk/internal/app/risk/trigger/service"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -14,71 +15,93 @@ import (
 	"github.com/samber/lo"
 )
 
-type StopOrderRoutes struct {
-	service order.StopOrderService
+type StopTriggerRoutes struct {
+	service *trigger_service.TriggerService
 }
 
-func NewStopOrderRoutes(service order.StopOrderService) *StopOrderRoutes {
-	return &StopOrderRoutes{service: service}
+func NewStopTriggerRoutes(service *trigger_service.TriggerService) *StopTriggerRoutes {
+	return &StopTriggerRoutes{service: service}
 }
 
-func (routes *StopOrderRoutes) Register(router chi.Router) {
-	router.Route("/api/stop-orders", func(r chi.Router) {
-		r.Post("/", routes.CreateStopOrder)
-		r.Get("/", routes.ListStopOrders)
-		r.Get("/{id}", routes.GetStopOrder)
-		r.Patch("/{id}", routes.UpdateStopOrder)
-		r.Delete("/{id}", routes.CancelStopOrder)
+func (routes *StopTriggerRoutes) Register(router chi.Router) {
+	router.Route("/api/stop-triggers", func(r chi.Router) {
+		r.Post("/", routes.CreateStopTrigger)
+		r.Get("/", routes.ListStopTriggers)
+		r.Get("/{id}", routes.GetStopTrigger)
+		r.Patch("/{id}", routes.UpdateStopTrigger)
+		r.Delete("/{id}", routes.CancelStopTrigger)
 	})
 }
 
-type CreateStopOrderRequest struct {
-	Ticker       string `json:"ticker"`
-	Side         string `json:"side"`
-	TriggerPrice int    `json:"trigger_price"`
-	LimitPrice   *int   `json:"limit_price"`
+type CreateStopTriggerRequest struct {
+	Contract struct {
+		Ticker string `json:"ticker"`
+		Side   string `json:"side"`
+	} `json:"contract"`
+	TriggerPrice int  `json:"trigger_price"`
+	LimitPrice   *int `json:"limit_price"`
 }
 
-type UpdateStopOrderRequest struct {
+type UpdateStopTriggerRequest struct {
 	TriggerPrice *int `json:"trigger_price"`
 	LimitPrice   *int `json:"limit_price"`
 }
 
-type StopOrderResponse struct {
-	ID           string    `json:"id"`
-	Ticker       string    `json:"ticker"`
-	Side         string    `json:"side"`
-	TriggerPrice int       `json:"trigger_price"`
-	LimitPrice   *int      `json:"limit_price"`
-	Status       string    `json:"status"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+type ContractIDResponse struct {
+	Ticker string `json:"ticker"`
+	Side   string `json:"side"`
+}
+
+type StopTriggerResponse struct {
+	TriggerID    string             `json:"trigger_id"`
+	TriggerType  string             `json:"trigger_type"`
+	Contract     ContractIDResponse `json:"contract"`
+	Status       string             `json:"status"`
+	TriggerPrice int                `json:"trigger_price"`
+	LimitPrice   *int               `json:"limit_price"`
+	CreatedAt    time.Time          `json:"created_at"`
+	UpdatedAt    time.Time          `json:"updated_at"`
 }
 
 // In api/mappers.go
-func ToStopOrderResponse(order *order.StopOrder) StopOrderResponse {
-	return StopOrderResponse{
-		ID:           order.ID().String(),
-		Ticker:       order.Ticker(),
-		Side:         order.Side().String(),
-		TriggerPrice: order.TriggerPrice().Value(),
-		Status:       string(order.Status()),
-		CreatedAt:    order.CreatedAt(),
-		UpdatedAt:    order.UpdatedAt(),
+func ToStopTriggerResponse(trigger *trigger_domain.Trigger) StopTriggerResponse {
+	var limitPrice *int
+	if trigger.Actions[0].LimitPrice != nil {
+		value := trigger.Actions[0].LimitPrice.Value()
+		limitPrice = &value
+	}
+
+	return StopTriggerResponse{
+		TriggerID:   trigger.TriggerID.String(),
+		TriggerType: trigger.TriggerType.String(),
+		Contract: ContractIDResponse{
+			Ticker: string(trigger.Condition.Contract.Ticker),
+			Side:   trigger.Condition.Contract.Side.String(),
+		},
+		Status:       trigger.Status.String(),
+		TriggerPrice: trigger.Condition.Price.Threshold.Value(),
+		LimitPrice:   limitPrice,
+		CreatedAt:    trigger.CreatedAt,
+		UpdatedAt:    trigger.UpdatedAt,
 	}
 }
 
-func (r *StopOrderRoutes) CreateStopOrder(w http.ResponseWriter, req *http.Request) {
-	var request CreateStopOrderRequest
+func (r *StopTriggerRoutes) CreateStopTrigger(w http.ResponseWriter, req *http.Request) {
+	var request CreateStopTriggerRequest
 	if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	side, err := contract.NewSide(request.Side)
+	side, err := contract.NewSide(request.Contract.Side)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	contractIdentifier := contract.ContractIdentifier{
+		Ticker: contract.Ticker(request.Contract.Ticker),
+		Side:   side,
 	}
 
 	triggerPrice, err := contract.NewContractPrice(request.TriggerPrice)
@@ -95,67 +118,67 @@ func (r *StopOrderRoutes) CreateStopOrder(w http.ResponseWriter, req *http.Reque
 		limitPrice = &cp
 	}
 
-	order, err := r.service.CreateOrder(request.Ticker, side, triggerPrice, limitPrice)
+	trigger, err := r.service.CreateStopTrigger(contractIdentifier, triggerPrice, limitPrice)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	response := ToStopOrderResponse(order)
+	response := ToStopTriggerResponse(trigger)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-func (r *StopOrderRoutes) ListStopOrders(w http.ResponseWriter, req *http.Request) {
-	orders, err := r.service.GetActiveOrders()
+func (r *StopTriggerRoutes) ListStopTriggers(w http.ResponseWriter, req *http.Request) {
+	triggers, err := r.service.Get()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	response := lo.Map(orders, func(order *order.StopOrder, _ int) StopOrderResponse {
-		return ToStopOrderResponse(order)
+	response := lo.Map(triggers, func(trigger *trigger_domain.Trigger, _ int) StopTriggerResponse {
+		return ToStopTriggerResponse(trigger)
 	})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-func (r *StopOrderRoutes) GetStopOrder(w http.ResponseWriter, req *http.Request) {
+func (r *StopTriggerRoutes) GetStopTrigger(w http.ResponseWriter, req *http.Request) {
 	id := chi.URLParam(req, "id")
 
-	orderID, err := uuid.Parse(id)
+	triggerID, err := uuid.Parse(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	order, err := r.service.GetOrder(order.OrderID(orderID))
+	trigger, err := r.service.GetByID(trigger_domain.TriggerID(triggerID))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if order == nil {
-		http.Error(w, "order not found", http.StatusNotFound)
+	if trigger == nil {
+		http.Error(w, "trigger not found", http.StatusNotFound)
 		return
 	}
 
-	response := ToStopOrderResponse(order)
+	response := ToStopTriggerResponse(trigger)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-func (r *StopOrderRoutes) UpdateStopOrder(w http.ResponseWriter, req *http.Request) {
+func (r *StopTriggerRoutes) UpdateStopTrigger(w http.ResponseWriter, req *http.Request) {
 	id := chi.URLParam(req, "id")
 
-	orderID, err := uuid.Parse(id)
+	triggerID, err := uuid.Parse(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	var request UpdateStopOrderRequest
+	var request UpdateStopTriggerRequest
 	if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -180,27 +203,27 @@ func (r *StopOrderRoutes) UpdateStopOrder(w http.ResponseWriter, req *http.Reque
 		limitPrice = &cp
 	}
 
-	order, err := r.service.UpdateOrder(order.OrderID(orderID), triggerPrice, limitPrice)
+	trigger, err := r.service.UpdateStopTrigger(trigger_domain.TriggerID(triggerID), triggerPrice, limitPrice)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	response := ToStopOrderResponse(order)
+	response := ToStopTriggerResponse(trigger)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-func (r *StopOrderRoutes) CancelStopOrder(w http.ResponseWriter, req *http.Request) {
+func (r *StopTriggerRoutes) CancelStopTrigger(w http.ResponseWriter, req *http.Request) {
 	id := chi.URLParam(req, "id")
 
-	orderID, err := uuid.Parse(id)
+	triggerID, err := uuid.Parse(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	order, err := r.service.CancelOrder(order.OrderID(orderID))
+	trigger, err := r.service.CancelTrigger(trigger_domain.TriggerID(triggerID))
 	if err != nil {
 		var notFoundErr *core.ErrNotFound // Note the pointer type
 		if errors.As(err, &notFoundErr) {
@@ -211,7 +234,7 @@ func (r *StopOrderRoutes) CancelStopOrder(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	response := ToStopOrderResponse(order)
+	response := ToStopTriggerResponse(trigger)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }

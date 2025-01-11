@@ -7,12 +7,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"prediction-risk/internal/app/exchange/infrastructure/kalshi"
+	exchange_service "prediction-risk/internal/app/exchange/service"
+	trigger_repository "prediction-risk/internal/app/risk/trigger/repository"
+	trigger_service "prediction-risk/internal/app/risk/trigger/service"
 	"prediction-risk/internal/config"
-	"prediction-risk/internal/domain/exchange"
-	"prediction-risk/internal/domain/order"
-	"prediction-risk/internal/domain/order/monitor"
-	"prediction-risk/internal/infrastructure/external/kalshi"
-	"prediction-risk/internal/infrastructure/repositories/postgres"
 	"prediction-risk/internal/interfaces/api"
 	"time"
 
@@ -55,16 +54,15 @@ func main() {
 	}
 	defer db.Close()
 
-	stopOrderRepo := postgres.NewStopOrderRepoPostgres(db)
-	exchangeService := exchange.NewExchangeService(kalshiClient.Market, kalshiClient.Portfolio)
-	stopOrderService := order.NewStopOrderService(stopOrderRepo, exchangeService)
-	positionMonitor := monitor.NewPositionMonitor(exchangeService, stopOrderService, 5*time.Second)
-	orderMonitor := monitor.NewOrderMonitor(stopOrderService, exchangeService, 5*time.Second, config.IsDryRun)
+	triggerRepo := trigger_repository.NewTriggerRepository(db)
+	_ = exchange_service.NewExchangeService(kalshiClient.Market, kalshiClient.Portfolio)
+	triggerService := trigger_service.NewTriggerService(triggerRepo)
+	triggerMonitor := trigger_service.NewTriggerMonitor(triggerService, 5*time.Second, config.IsDryRun)
 
 	// Run monitors
-	monitors := []monitor.Monitor{positionMonitor, orderMonitor}
+	monitors := []Monitor{triggerMonitor}
 	for _, m := range monitors {
-		monitor.RunMonitor(m)
+		RunMonitor(m)
 	}
 
 	// Setup router
@@ -73,8 +71,8 @@ func main() {
 	router.Use(middleware.Recoverer)
 
 	// Mount routes
-	stopOrderRoutes := api.NewStopOrderRoutes(stopOrderService)
-	stopOrderRoutes.Register(router)
+	stopTriggerRoutes := api.NewStopTriggerRoutes(triggerService)
+	stopTriggerRoutes.Register(router)
 
 	// Start server
 	srv := &http.Server{
