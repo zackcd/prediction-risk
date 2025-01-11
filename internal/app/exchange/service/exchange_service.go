@@ -9,7 +9,7 @@ import (
 type ExchangeService interface {
 	GetMarket(ticker string) (*kalshi.Market, error)
 	GetPositions() (*kalshi.PositionsResult, error)
-	CreateSellOrder(ticker string, count int, side contract.Side, limitPrice *contract.ContractPrice) (*exchange_domain.Order, error)
+	CreateSellOrder(ticker string, count int, side contract.Side, limitPrice *contract.ContractPrice, orderID *exchange_domain.OrderID) (*exchange_domain.Order, error)
 }
 
 type MarketGetter interface {
@@ -55,7 +55,13 @@ func (es *exchangeService) CreateSellOrder(
 	count int,
 	side contract.Side,
 	limitPrice *contract.ContractPrice,
+	orderID *exchange_domain.OrderID,
 ) (*exchange_domain.Order, error) {
+	if orderID == nil {
+		newID := exchange_domain.NewOrderID()
+		orderID = &newID
+	}
+
 	var orderSide kalshi.OrderSide
 	if side == contract.SideYes {
 		orderSide = kalshi.OrderSideYes
@@ -78,8 +84,6 @@ func (es *exchangeService) CreateSellOrder(
 		orderType = "market"
 	}
 
-	orderID := exchange_domain.NewOrderID()
-
 	request := kalshi.CreateOrderRequest{
 		Ticker:        ticker,
 		ClientOrderID: orderID.String(),
@@ -96,7 +100,7 @@ func (es *exchangeService) CreateSellOrder(
 	}
 
 	return &exchange_domain.Order{
-		OrderID:         orderID,
+		OrderID:         *orderID,
 		ExchangeOrderID: resp.Order.ID,
 		Exchange:        exchange_domain.ExchangeKalshi,
 		Ticker:          resp.Order.Ticker,

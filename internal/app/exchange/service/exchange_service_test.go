@@ -241,7 +241,7 @@ func TestCreateSellOrder(t *testing.T) {
 				m.On("CreateOrder", expectedRequest).Return(&kalshi.CreateOrderResponse{
 					Order: kalshi.Order{
 						ID:            "exchange-123",
-						ClientOrderID: "order-123",
+						ClientOrderID: orderID.String(),
 						Ticker:        "TEST-MKT",
 						Side:          kalshi.OrderSideNo,
 						Action:        string(kalshi.OrderActionSell),
@@ -268,11 +268,11 @@ func TestCreateSellOrder(t *testing.T) {
 			ticker:  "TEST-MKT",
 			count:   5,
 			side:    contract.SideYes,
-			orderID: "order-123",
+			orderID: orderID.String(),
 			mockSetup: func(m *mockPortfolioManager) {
 				expectedRequest := kalshi.CreateOrderRequest{
 					Ticker:        "TEST-MKT",
-					ClientOrderID: "order-123",
+					ClientOrderID: orderID.String(),
 					Side:          kalshi.OrderSideYes,
 					Action:        kalshi.OrderActionSell,
 					Count:         5,
@@ -295,7 +295,7 @@ func TestCreateSellOrder(t *testing.T) {
 			tt.mockSetup(portfolioManager)
 
 			service := NewExchangeService(nil, portfolioManager) // Market getter not needed for this test
-			order, err := service.CreateSellOrder(tt.ticker, tt.count, tt.side, nil)
+			order, err := service.CreateSellOrder(tt.ticker, tt.count, tt.side, nil, &orderID)
 
 			if tt.expectError {
 				assert.Error(t, err)

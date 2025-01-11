@@ -33,10 +33,10 @@ func (m *MockExchangeService) CreateSellOrder(
 	ticker string,
 	count int,
 	side contract.Side,
-	orderID string,
 	limitPrice *contract.ContractPrice,
+	orderID *exchange_domain.OrderID,
 ) (*exchange_domain.Order, error) {
-	args := m.Called(ticker, count, side, orderID, limitPrice)
+	args := m.Called(ticker, count, side, limitPrice, orderID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
