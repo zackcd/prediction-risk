@@ -22,7 +22,13 @@ func NewStopTrigger(
 		return nil, err
 	}
 
-	return NewTrigger(TriggerTypeStop, *condition, []TriggerAction{*action}), nil
+	trigger := NewTrigger(TriggerTypeStop, *condition, []TriggerAction{*action})
+
+	if err := ValidateStopTrigger(trigger); err != nil {
+		return nil, err
+	}
+
+	return trigger, nil
 }
 
 func ValidateStopTrigger(t *Trigger) error {
@@ -37,6 +43,10 @@ func ValidateStopTrigger(t *Trigger) error {
 	// Condition validation
 	if t.Condition.Price == nil {
 		return errors.New("stop trigger must have a price condition")
+	}
+	// Price validation
+	if !t.Condition.Price.Threshold.IsValid() {
+		return fmt.Errorf("invalid stop price: %v", t.Condition.Price.Threshold)
 	}
 	if t.Condition.Price.Direction != Below {
 		return fmt.Errorf("stop trigger price direction must be Below, got %s", t.Condition.Price.Direction)
@@ -58,13 +68,12 @@ func ValidateStopTrigger(t *Trigger) error {
 			t.Condition.Contract, action.Contract)
 	}
 
-	// Price validation
-	if t.Condition.Price.Threshold <= 0 {
-		return errors.New("stop price must be greater than zero")
-	}
-
 	// If there's a limit price, it must be valid
 	if action.LimitPrice != nil {
+		// Limit price must be valid
+		if !action.LimitPrice.IsValid() {
+			return fmt.Errorf("invalid limit price: %v", *action.LimitPrice)
+		}
 		// Optional: Validate limit price is "reasonable" compared to stop price
 		// e.g., not too far below stop price to prevent extreme slippage
 		if float64(*action.LimitPrice) < float64(t.Condition.Price.Threshold)*0.9 { // 10% max slippage
