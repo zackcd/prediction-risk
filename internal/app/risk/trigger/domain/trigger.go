@@ -1,6 +1,7 @@
 package trigger_domain
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,6 +31,21 @@ func (s TriggerStatus) IsValid() bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func NewTriggerStatus(s string) (TriggerStatus, error) {
+	switch s {
+	case "ACTIVE":
+		return StatusActive, nil
+	case "TRIGGERED":
+		return StatusTriggered, nil
+	case "CANCELLED":
+		return StatusCancelled, nil
+	case "EXPIRED":
+		return StatusExpired, nil
+	default:
+		return "", fmt.Errorf("invalid TriggerStatus: %s", s)
 	}
 }
 

@@ -15,10 +15,9 @@ var (
 )
 
 type TriggerRepository interface {
-	Save(ctx context.Context, trigger *trigger_domain.Trigger) error
+	Persist(ctx context.Context, trigger *trigger_domain.Trigger) error
 	Get(ctx context.Context, id trigger_domain.TriggerID) (*trigger_domain.Trigger, error)
 	GetAll(ctx context.Context) ([]*trigger_domain.Trigger, error)
-	Update(ctx context.Context, trigger *trigger_domain.Trigger) error
 }
 
 type TriggerService struct {
@@ -61,7 +60,7 @@ func (s *TriggerService) CancelTrigger(triggerID trigger_domain.TriggerID) (*tri
 	}
 
 	trigger.Status = trigger_domain.StatusCancelled
-	err = s.repository.Update(context.Background(), trigger)
+	err = s.repository.Persist(context.Background(), trigger)
 	if err != nil {
 		return nil, fmt.Errorf("update trigger: %w", err)
 	}
@@ -92,7 +91,7 @@ func (s *TriggerService) CreateStopTrigger(
 	}
 
 	// Save trigger
-	err = s.repository.Save(context.Background(), trigger)
+	err = s.repository.Persist(context.Background(), trigger)
 	if err != nil {
 		return nil, fmt.Errorf("save trigger: %w", err)
 	}
@@ -137,7 +136,7 @@ func (s *TriggerService) UpdateStopTrigger(
 	}
 
 	// Save updates
-	err = s.repository.Update(context.Background(), trigger)
+	err = s.repository.Persist(context.Background(), trigger)
 	if err != nil {
 		return nil, fmt.Errorf("update trigger: %w", err)
 	}

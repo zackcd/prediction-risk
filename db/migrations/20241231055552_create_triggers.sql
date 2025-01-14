@@ -23,10 +23,7 @@ CREATE DOMAIN event_contract.contract_price_cents AS INTEGER CHECK (
 CREATE TABLE event_contract.trigger (
     trigger_id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
     trigger_type event_contract.trigger_type NOT NULL,
-    contract_ticker VARCHAR(255) NOT NULL,
-    contract_side event_contract.contract_side NOT NULL,
     status event_contract.trigger_status NOT NULL DEFAULT 'ACTIVE',
-    -- Metadata
     created_at TIMESTAMP NOT NULL DEFAULT NOW (),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW ()
 );
@@ -35,8 +32,8 @@ CREATE TABLE event_contract.price_trigger_condition (
     trigger_id UUID PRIMARY KEY REFERENCES event_contract.trigger (trigger_id) ON DELETE CASCADE,
     contract_ticker VARCHAR(255) NOT NULL,
     contract_side event_contract.contract_side NOT NULL,
-    threshold_price NOT NULL event_contract.contract_price_cents,
-    direction NOT NULL price_direction,
+    threshold_price event_contract.contract_price_cents NOT NULL,
+    direction event_contract.price_direction NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW (),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW ()
 );
@@ -62,22 +59,7 @@ CREATE TABLE event_contract.trigger_action (
 );
 
 -- Indexes
-CREATE INDEX idx_triggers_contract_status ON triggers (contract_ticker, contract_side, status);
-
-CREATE INDEX idx_actions_trigger ON trigger_actions (trigger_id);
-
--- Ensure stop triggers have exactly one action
-CREATE UNIQUE INDEX idx_stop_trigger_single_action ON trigger_actions (trigger_id)
-WHERE
-    EXISTS (
-        SELECT
-            1
-        FROM
-            triggers t
-        WHERE
-            t.trigger_id = trigger_actions.trigger_id
-            AND t.trigger_type = 'STOP'
-    );
+CREATE INDEX idx_actions_trigger ON event_contract.trigger_action (trigger_id);
 
 -- migrate:down
 DROP SCHEMA IF EXISTS event_contract;

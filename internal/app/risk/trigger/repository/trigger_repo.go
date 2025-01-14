@@ -9,14 +9,46 @@ import (
 	trigger_domain "prediction-risk/internal/app/risk/trigger/domain"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
+	_ "github.com/lib/pq" // postgres driver
 )
 
 var (
 	ErrTriggerNotFound      = errors.New("trigger not found")
 	ErrTriggerAlreadyExists = errors.New("active trigger already exists for this contract and type")
 )
+
+// Database models for scanning
+type TriggerDB struct {
+	TriggerID uuid.UUID `db:"trigger_id"`
+	Type      string    `db:"trigger_type"`
+	Status    string    `db:"status"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
+}
+
+type PriceConditionDB struct {
+	TriggerID      uuid.UUID `db:"trigger_id"`
+	ContractTicker string    `db:"contract_ticker"`
+	ContractSide   string    `db:"contract_side"`
+	ThresholdPrice int       `db:"threshold_price"`
+	Direction      string    `db:"direction"`
+	CreatedAt      time.Time `db:"created_at"`
+	UpdatedAt      time.Time `db:"updated_at"`
+}
+
+type TriggerActionDB struct {
+	ActionID       uuid.UUID     `db:"action_id"`
+	TriggerID      uuid.UUID     `db:"trigger_id"`
+	ContractTicker string        `db:"contract_ticker"`
+	ContractSide   string        `db:"contract_side"`
+	OrderSide      string        `db:"order_side"`
+	OrderSize      sql.NullInt64 `db:"order_size"`
+	LimitPrice     sql.NullInt64 `db:"limit_price"`
+	CreatedAt      time.Time     `db:"created_at"`
+	UpdatedAt      time.Time     `db:"updated_at"`
+}
 
 type TriggerRepository struct {
 	db *sqlx.DB
@@ -27,77 +59,95 @@ func NewTriggerRepository(db *sqlx.DB) *TriggerRepository {
 }
 
 // Save stores a new trigger in the database
-func (r *TriggerRepository) Save(ctx context.Context, trigger *trigger_domain.Trigger) error {
+func (r *TriggerRepository) Persist(ctx context.Context, trigger *trigger_domain.Trigger) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
-	// Insert main trigger record
+	// Upsert main trigger record
 	triggerQuery := `
-		INSERT INTO triggers (
-			trigger_id, trigger_type, status, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5)
-	`
+			INSERT INTO event_contract.trigger (
+				trigger_id, trigger_type, status, created_at, updated_at
+			) VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (trigger_id) DO UPDATE SET
+				status = EXCLUDED.status,
+				updated_at = EXCLUDED.updated_at
+		`
 	_, err = tx.ExecContext(ctx, triggerQuery,
-		trigger.TriggerID,
+		uuid.UUID(trigger.TriggerID),
 		trigger_domain.TriggerTypeStop,
 		trigger.Status,
 		trigger.CreatedAt,
 		trigger.UpdatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("insert trigger: %w", err)
+		return fmt.Errorf("upsert trigger: %w", err)
 	}
 
-	// Insert price condition
+	// Upsert price condition
 	conditionQuery := `
-		INSERT INTO price_trigger_conditions (
-			trigger_id, contract_ticker, contract_side,
-			threshold, direction, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`
+			INSERT INTO event_contract.price_trigger_condition (
+				trigger_id, contract_ticker, contract_side,
+				threshold_price, direction, created_at, updated_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7)
+			ON CONFLICT (trigger_id) DO UPDATE SET
+				contract_ticker = EXCLUDED.contract_ticker,
+				contract_side = EXCLUDED.contract_side,
+				threshold_price = EXCLUDED.threshold_price,
+				direction = EXCLUDED.direction,
+				updated_at = EXCLUDED.updated_at
+		`
 	_, err = tx.ExecContext(ctx, conditionQuery,
-		trigger.TriggerID,
+		uuid.UUID(trigger.TriggerID),
 		trigger.Condition.Contract.Ticker,
 		trigger.Condition.Contract.Side,
-		trigger.Condition.Price.Threshold,
+		int(trigger.Condition.Price.Threshold),
 		trigger.Condition.Price.Direction,
 		trigger.CreatedAt,
 		trigger.UpdatedAt,
 	)
 	if err != nil {
-		if pqErr, ok := err.(*pq.Error); ok {
-			if pqErr.Code == "23505" && pqErr.Constraint == "idx_unique_active_trigger" {
-				return ErrTriggerAlreadyExists
-			}
-		}
-		return fmt.Errorf("insert price condition: %w", err)
+		return fmt.Errorf("upsert condition: %w", err)
+	}
+
+	// For actions, still need to delete and reinsert since they're a collection
+	_, err = tx.ExecContext(ctx,
+		"DELETE FROM event_contract.trigger_action WHERE trigger_id = $1",
+		uuid.UUID(trigger.TriggerID),
+	)
+	if err != nil {
+		return fmt.Errorf("delete actions: %w", err)
 	}
 
 	// Insert actions
 	actionQuery := `
-		INSERT INTO trigger_actions (
-			trigger_id, contract_ticker, contract_side,
-			order_side, order_size, limit_price,
-			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`
+			INSERT INTO event_contract.trigger_action (
+				trigger_id, contract_ticker, contract_side,
+				order_side, order_size, limit_price,
+				created_at, updated_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		`
 	for _, action := range trigger.Actions {
 		var size *int64
 		if action.Size != nil {
 			i64 := int64(*action.Size)
 			size = &i64
 		}
+		var limitPrice *int
+		if action.LimitPrice != nil {
+			intPrice := int(*action.LimitPrice)
+			limitPrice = &intPrice
+		}
 
-		_, err = tx.Exec(actionQuery,
-			trigger.TriggerID,
+		_, err = tx.ExecContext(ctx, actionQuery,
+			uuid.UUID(trigger.TriggerID),
 			action.Contract.Ticker,
 			action.Contract.Side,
 			action.Side,
 			size,
-			action.LimitPrice,
+			limitPrice,
 			trigger.CreatedAt,
 			trigger.UpdatedAt,
 		)
@@ -111,22 +161,13 @@ func (r *TriggerRepository) Save(ctx context.Context, trigger *trigger_domain.Tr
 
 // Get retrieves a trigger by its ID
 func (r *TriggerRepository) Get(ctx context.Context, id trigger_domain.TriggerID) (*trigger_domain.Trigger, error) {
-	// First get the main trigger record
-	triggerQuery := `
+	// Get main trigger record
+	var triggerDB TriggerDB
+	err := r.db.GetContext(ctx, &triggerDB, `
 		SELECT trigger_id, trigger_type, status, created_at, updated_at
-		FROM triggers
+		FROM event_contract.trigger
 		WHERE trigger_id = $1
-	`
-	var trigger trigger_domain.Trigger
-	var triggerType string
-
-	err := r.db.QueryRowContext(ctx, triggerQuery, id).Scan(
-		&trigger.TriggerID,
-		&triggerType,
-		&trigger.Status,
-		&trigger.CreatedAt,
-		&trigger.UpdatedAt,
-	)
+	`, uuid.UUID(id))
 	if err == sql.ErrNoRows {
 		return nil, ErrTriggerNotFound
 	}
@@ -134,245 +175,133 @@ func (r *TriggerRepository) Get(ctx context.Context, id trigger_domain.TriggerID
 		return nil, fmt.Errorf("query trigger: %w", err)
 	}
 
-	// Get the condition
-	conditionQuery := `
-		SELECT contract_ticker, contract_side, threshold, direction
-		FROM price_trigger_conditions
+	// Get condition
+	var conditionDB PriceConditionDB
+	err = r.db.GetContext(ctx, &conditionDB, `
+		SELECT contract_ticker, contract_side, threshold_price, direction
+		FROM event_contract.price_trigger_condition
 		WHERE trigger_id = $1
-	`
-	var (
-		contractTicker string
-		contractSide   string
-		threshold      float64
-		direction      string
-	)
-
-	err = r.db.QueryRowContext(ctx, conditionQuery, id).Scan(
-		&contractTicker,
-		&contractSide,
-		&threshold,
-		&direction,
-	)
+	`, uuid.UUID(id))
 	if err != nil {
 		return nil, fmt.Errorf("query condition: %w", err)
 	}
 
-	side, err := contract.NewSide(contractSide)
+	side, err := contract.NewSide(conditionDB.ContractSide)
 	if err != nil {
 		return nil, fmt.Errorf("create side: %w", err)
 	}
-	// Create condition
+
 	condition, err := trigger_domain.NewPriceCondition(
 		contract.ContractIdentifier{
-			Ticker: contract.Ticker(contractTicker),
+			Ticker: contract.Ticker(conditionDB.ContractTicker),
 			Side:   side,
 		},
-		contract.ContractPrice(threshold),
-		trigger_domain.Direction(direction),
+		contract.ContractPrice(conditionDB.ThresholdPrice),
+		trigger_domain.Direction(conditionDB.Direction),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create price condition: %w", err)
 	}
-	trigger.Condition = *condition
 
-	// Get all actions
-	actionsQuery := `
+	// Get actions
+	var actionsDB []TriggerActionDB
+	err = r.db.SelectContext(ctx, &actionsDB, `
 		SELECT contract_ticker, contract_side, order_side, order_size, limit_price
-		FROM trigger_actions
+		FROM event_contract.trigger_action
 		WHERE trigger_id = $1
 		ORDER BY created_at
-	`
-	rows, err := r.db.QueryContext(ctx, actionsQuery, id)
+	`, uuid.UUID(id))
 	if err != nil {
 		return nil, fmt.Errorf("query actions: %w", err)
 	}
-	defer rows.Close()
 
 	var actions []trigger_domain.TriggerAction
-	for rows.Next() {
-		var (
-			actionContractTicker string
-			actionContractSide   string
-			orderSide            string
-			orderSize            sql.NullInt64
-			limitPrice           sql.NullFloat64
-		)
-
-		err := rows.Scan(
-			&actionContractTicker,
-			&actionContractSide,
-			&orderSide,
-			&orderSize,
-			&limitPrice,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("scan action: %w", err)
-		}
-
+	for _, actionDB := range actionsDB {
 		var size *uint
-		if orderSize.Valid {
-			uintSize := uint(orderSize.Int64)
+		if actionDB.OrderSize.Valid {
+			uintSize := uint(actionDB.OrderSize.Int64)
 			size = &uintSize
 		}
 
-		var price *contract.ContractPrice
-		if limitPrice.Valid {
-			p := contract.ContractPrice(limitPrice.Float64)
-			price = &p
+		var limitPrice *contract.ContractPrice
+		if actionDB.LimitPrice.Valid {
+			price := contract.ContractPrice(actionDB.LimitPrice.Int64)
+			limitPrice = &price
 		}
 
-		side, err := contract.NewSide(contractSide)
+		contractSide, err := contract.NewSide(conditionDB.ContractSide)
 		if err != nil {
 			return nil, fmt.Errorf("create side: %w", err)
 		}
+
+		orderSide, err := trigger_domain.NewOrderSide(actionDB.OrderSide)
+		if err != nil {
+			return nil, fmt.Errorf("create order side: %w", err)
+		}
+
 		action, err := trigger_domain.NewTriggerAction(
 			contract.ContractIdentifier{
-				Ticker: contract.Ticker(actionContractTicker),
-				Side:   side,
+				Ticker: contract.Ticker(actionDB.ContractTicker),
+				Side:   contractSide,
 			},
-			trigger_domain.OrderSide(orderSide),
+			orderSide,
 			size,
-			price,
+			limitPrice,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("create trigger action: %w", err)
 		}
-
 		actions = append(actions, *action)
 	}
 
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("action rows: %w", err)
+	status, err := trigger_domain.NewTriggerStatus(triggerDB.Status)
+	if err != nil {
+		return nil, fmt.Errorf("create trigger status: %w", err)
 	}
 
-	trigger.Actions = actions
-	return &trigger, nil
+	return &trigger_domain.Trigger{
+		TriggerID: trigger_domain.TriggerID(triggerDB.TriggerID),
+		Status:    status,
+		Condition: *condition,
+		Actions:   actions,
+		CreatedAt: triggerDB.CreatedAt,
+		UpdatedAt: triggerDB.UpdatedAt,
+	}, nil
 }
 
-// Update updates an existing trigger
-func (r *TriggerRepository) Update(ctx context.Context, trigger *trigger_domain.Trigger) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin transaction: %w", err)
-	}
-	defer tx.Rollback()
-
-	// Update main trigger
-	triggerQuery := `
-		UPDATE triggers
-		SET status = $2,
-			updated_at = $3
-		WHERE trigger_id = $1
-	`
-	result, err := tx.ExecContext(ctx, triggerQuery,
-		trigger.TriggerID,
-		trigger.Status,
-		time.Now(),
-	)
-	if err != nil {
-		return fmt.Errorf("update trigger: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("get rows affected: %w", err)
-	}
-	if rowsAffected == 0 {
-		return ErrTriggerNotFound
-	}
-
-	// Update condition
-	conditionQuery := `
-		UPDATE price_trigger_conditions
-		SET contract_ticker = $2,
-			contract_side = $3,
-			threshold = $4,
-			direction = $5,
-			updated_at = $6
-		WHERE trigger_id = $1
-	`
-	_, err = tx.ExecContext(ctx, conditionQuery,
-		trigger.TriggerID,
-		trigger.Condition.Contract.Ticker,
-		trigger.Condition.Contract.Side,
-		trigger.Condition.Price.Threshold,
-		trigger.Condition.Price.Direction,
-		time.Now(),
-	)
-	if err != nil {
-		return fmt.Errorf("update condition: %w", err)
-	}
-
-	// Delete existing actions and insert new ones
-	_, err = tx.ExecContext(ctx, "DELETE FROM trigger_actions WHERE trigger_id = $1", trigger.TriggerID)
-	if err != nil {
-		return fmt.Errorf("delete actions: %w", err)
-	}
-
-	actionQuery := `
-		INSERT INTO trigger_actions (
-			trigger_id, contract_ticker, contract_side,
-			order_side, order_size, limit_price,
-			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`
-	for _, action := range trigger.Actions {
-		var size *int64
-		if action.Size != nil {
-			i64 := int64(*action.Size)
-			size = &i64
-		}
-
-		_, err = tx.ExecContext(ctx, actionQuery,
-			trigger.TriggerID,
-			action.Contract.Ticker,
-			action.Contract.Side,
-			action.Side,
-			size,
-			action.LimitPrice,
-			time.Now(),
-			time.Now(),
-		)
-		if err != nil {
-			return fmt.Errorf("insert action: %w", err)
-		}
-	}
-
-	return tx.Commit()
-}
-
-// GetActiveByContract retrieves all active triggers for a specific contract
+// GetAll retrieves all triggers
 func (r *TriggerRepository) GetAll(ctx context.Context) ([]*trigger_domain.Trigger, error) {
-	query := `
-		SELECT DISTINCT t.trigger_id
-		FROM triggers t
-		JOIN price_trigger_conditions pc ON t.trigger_id = pc.trigger_id
-	`
-
-	rows, err := r.db.QueryContext(ctx, query)
+	var triggerDBs []TriggerDB
+	err := r.db.SelectContext(ctx, &triggerDBs, `
+		SELECT DISTINCT t.trigger_id, t.trigger_type, t.status, t.created_at, t.updated_at
+		FROM event_contract.trigger t
+		JOIN event_contract.price_trigger_condition pc ON t.trigger_id = pc.trigger_id
+	`)
 	if err != nil {
 		return nil, fmt.Errorf("query triggers: %w", err)
 	}
-	defer rows.Close()
 
 	var triggers []*trigger_domain.Trigger
-	for rows.Next() {
-		var triggerID trigger_domain.TriggerID
-		if err := rows.Scan(&triggerID); err != nil {
-			return nil, fmt.Errorf("scan trigger id: %w", err)
-		}
-
-		trigger, err := r.Get(ctx, triggerID)
+	for _, t := range triggerDBs {
+		trigger, err := r.Get(ctx, trigger_domain.TriggerID(t.TriggerID))
 		if err != nil {
-			return nil, fmt.Errorf("get trigger %s: %w", triggerID, err)
+			return nil, fmt.Errorf("get trigger %s: %w", t.TriggerID, err)
 		}
-
 		triggers = append(triggers, trigger)
 	}
 
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("trigger rows: %w", err)
-	}
-
 	return triggers, nil
+}
+
+// Helper method
+func (r *TriggerRepository) checkExists(ctx context.Context, trigger *trigger_domain.Trigger) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx, `
+        SELECT EXISTS (
+            SELECT 1 FROM event_contract.trigger t
+            JOIN event_contract.price_trigger_condition pc ON t.trigger_id = pc.trigger_id
+            WHERE t.trigger_id = $1
+        )
+    `, uuid.UUID(trigger.TriggerID)).Scan(&exists)
+	return exists, err
 }

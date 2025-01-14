@@ -26,6 +26,17 @@ func (s OrderSide) IsValid() bool {
 	}
 }
 
+func NewOrderSide(s string) (OrderSide, error) {
+	switch s {
+	case "BUY":
+		return Buy, nil
+	case "SELL":
+		return Sell, nil
+	default:
+		return "", fmt.Errorf("invalid OrderSide: %s", s)
+	}
+}
+
 // Action represents what to do when the condition is met
 type TriggerAction struct {
 	Contract   contract.ContractIdentifier

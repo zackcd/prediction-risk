@@ -138,7 +138,7 @@ func TestCancelTrigger(t *testing.T) {
 				}
 
 				repo.On("Get", mock.Anything, triggerID).Return(activeTrigger, nil).Once()
-				repo.On("Update", mock.Anything, mock.MatchedBy(func(t *trigger_domain.Trigger) bool {
+				repo.On("Persist", mock.Anything, mock.MatchedBy(func(t *trigger_domain.Trigger) bool {
 					return t.Status == trigger_domain.StatusCancelled
 				})).Return(nil)
 				repo.On("Get", mock.Anything, triggerID).Return(cancelledTrigger, nil).Once()
@@ -197,7 +197,7 @@ func TestCreateStopTrigger(t *testing.T) {
 			triggerPrice: contract.ContractPrice(50),
 			limitPrice:   ptr(contract.ContractPrice(45)),
 			mockSetup: func(repo *trigger_mock.MockTriggerRepository) {
-				repo.On("Save", mock.Anything, mock.MatchedBy(func(t *trigger_domain.Trigger) bool {
+				repo.On("Persist", mock.Anything, mock.MatchedBy(func(t *trigger_domain.Trigger) bool {
 					return t.TriggerType == trigger_domain.TriggerTypeStop
 				})).Return(nil)
 				repo.On("Get", mock.Anything, mock.AnythingOfType("trigger_domain.TriggerID")).
@@ -277,7 +277,7 @@ func TestUpdateStopTrigger(t *testing.T) {
 				}
 
 				repo.On("Get", mock.Anything, triggerID).Return(existingTrigger, nil).Once()
-				repo.On("Update", mock.Anything, mock.MatchedBy(func(t *trigger_domain.Trigger) bool {
+				repo.On("Persist", mock.Anything, mock.MatchedBy(func(t *trigger_domain.Trigger) bool {
 					return t.TriggerType == trigger_domain.TriggerTypeStop
 				})).Return(nil)
 				repo.On("Get", mock.Anything, triggerID).Return(existingTrigger, nil).Once()

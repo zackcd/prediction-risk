@@ -1,4 +1,4 @@
-package core
+package testutil
 
 import (
 	"context"
@@ -17,12 +17,16 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-type testDB struct {
+type TestDB struct {
 	container testcontainers.Container
 	db        *sqlx.DB
 }
 
-func SetupTestDB(t *testing.T) *testDB {
+func (tdb *TestDB) DB() *sqlx.DB {
+	return tdb.db
+}
+
+func SetupTestDB(t *testing.T) *TestDB {
 	ctx := context.Background()
 
 	// Container request
@@ -88,7 +92,7 @@ func SetupTestDB(t *testing.T) *testDB {
 		require.NoError(t, err, "Failed to run migrations")
 	}
 
-	return &testDB{
+	return &TestDB{
 		container: container,
 		db:        db,
 	}
@@ -113,14 +117,14 @@ func findProjectRoot() (string, error) {
 	}
 }
 
-func (tdb *testDB) Close(t *testing.T) {
+func (tdb *TestDB) Close(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, tdb.db.Close())
 	require.NoError(t, tdb.container.Terminate(ctx))
 }
 
 // Cleanup truncates all project-related tables in the database
-func (tdb *testDB) Cleanup(t *testing.T) {
+func (tdb *TestDB) Cleanup(t *testing.T) {
 	query := `
 		SELECT table_schema || '.' || table_name
 		FROM information_schema.tables
