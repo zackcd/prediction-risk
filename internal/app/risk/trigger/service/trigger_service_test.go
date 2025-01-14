@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetByID(t *testing.T) {
@@ -302,6 +303,128 @@ func TestUpdateStopTrigger(t *testing.T) {
 				assert.Equal(t, trigger_domain.TriggerTypeStop, trigger.TriggerType)
 			}
 			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestUpdateTriggerStatus(t *testing.T) {
+	testCases := []struct {
+		name          string
+		setupMock     func(*trigger_mock.MockTriggerRepository)
+		currentStatus trigger_domain.TriggerStatus
+		newStatus     trigger_domain.TriggerStatus
+		expectedError string
+	}{
+		{
+			name: "successful status update from active to triggered",
+			setupMock: func(repo *trigger_mock.MockTriggerRepository) {
+				trigger := &trigger_domain.Trigger{Status: trigger_domain.StatusActive}
+
+				repo.On("Get", mock.Anything, mock.Anything).Return(trigger, nil).Once()
+				repo.On("Persist", mock.Anything, mock.Anything).Return(nil)
+			},
+			currentStatus: trigger_domain.StatusActive,
+			newStatus:     trigger_domain.StatusTriggered,
+		},
+		{
+			name: "get trigger error",
+			setupMock: func(repo *trigger_mock.MockTriggerRepository) {
+				repo.On("Get", mock.Anything, mock.Anything).Return(nil, errors.New("db error")).Once()
+			},
+			currentStatus: trigger_domain.StatusActive,
+			newStatus:     trigger_domain.StatusTriggered,
+			expectedError: "get trigger: db error",
+		},
+		{
+			name: "cannot transition from terminal status",
+			setupMock: func(repo *trigger_mock.MockTriggerRepository) {
+				trigger := &trigger_domain.Trigger{Status: trigger_domain.StatusTriggered}
+				repo.On("Get", mock.Anything, mock.Anything).Return(trigger, nil).Once()
+			},
+			currentStatus: trigger_domain.StatusTriggered,
+			newStatus:     trigger_domain.StatusCancelled,
+			expectedError: "cannot transition from terminal status TRIGGERED",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup
+			repo := new(trigger_mock.MockTriggerRepository)
+			tc.setupMock(repo)
+			service := NewTriggerService(repo)
+
+			// Execute
+			updatedTrigger, err := service.UpdateTriggerStatus(trigger_domain.NewTriggerID(), tc.newStatus)
+
+			// Verify
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedError)
+				assert.Nil(t, updatedTrigger)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, updatedTrigger)
+				assert.Equal(t, tc.newStatus, updatedTrigger.Status)
+			}
+
+			// Verify all expectations on mock were met
+			repo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestTriggerService_validateStatusTransition(t *testing.T) {
+	testCases := []struct {
+		name          string
+		currentStatus trigger_domain.TriggerStatus
+		newStatus     trigger_domain.TriggerStatus
+		expectedError string
+	}{
+		{
+			name:          "valid transition from active to triggered",
+			currentStatus: trigger_domain.StatusActive,
+			newStatus:     trigger_domain.StatusTriggered,
+		},
+		{
+			name:          "valid transition from active to cancelled",
+			currentStatus: trigger_domain.StatusActive,
+			newStatus:     trigger_domain.StatusCancelled,
+		},
+		{
+			name:          "invalid current status",
+			currentStatus: "INVALID",
+			newStatus:     trigger_domain.StatusTriggered,
+			expectedError: "invalid status",
+		},
+		{
+			name:          "invalid new status",
+			currentStatus: trigger_domain.StatusActive,
+			newStatus:     "INVALID",
+			expectedError: "invalid status",
+		},
+		{
+			name:          "transition from terminal status",
+			currentStatus: trigger_domain.StatusTriggered,
+			newStatus:     trigger_domain.StatusCancelled,
+			expectedError: "cannot transition from terminal status TRIGGERED",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			service := NewTriggerService(nil) // Repository not needed for validation
+
+			// Execute
+			err := service.validateStatusTransition(tc.currentStatus, tc.newStatus)
+
+			// Verify
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"prediction-risk/internal/app/contract"
 	trigger_domain "prediction-risk/internal/app/risk/trigger/domain"
+	"time"
 )
 
 var (
@@ -149,6 +150,29 @@ func (s *TriggerService) UpdateStopTrigger(
 	return updatedTrigger, nil
 }
 
+func (s *TriggerService) UpdateTriggerStatus(
+	triggerID trigger_domain.TriggerID,
+	newStatus trigger_domain.TriggerStatus,
+) (*trigger_domain.Trigger, error) {
+	trigger, err := s.repository.Get(context.Background(), triggerID)
+	if err != nil {
+		return nil, fmt.Errorf("get trigger: %w", err)
+	}
+
+	if err := s.validateStatusTransition(trigger.Status, newStatus); err != nil {
+		return nil, fmt.Errorf("invalid status transition: %w", err)
+	}
+
+	trigger.Status = newStatus
+	trigger.UpdatedAt = time.Now()
+	err = s.repository.Persist(context.Background(), trigger)
+	if err != nil {
+		return nil, fmt.Errorf("update trigger: %w", err)
+	}
+
+	return trigger, nil
+}
+
 // validateStatusTransition checks if a status transition is valid
 func (s *TriggerService) validateStatusTransition(
 	currentStatus trigger_domain.TriggerStatus,
@@ -162,11 +186,6 @@ func (s *TriggerService) validateStatusTransition(
 	// Cannot transition from a terminal state
 	if currentStatus.IsTerminal() {
 		return fmt.Errorf("cannot transition from terminal status %s", currentStatus)
-	}
-
-	// Cannot transition from non-active state to another non-active state
-	if currentStatus != trigger_domain.StatusActive && newStatus != trigger_domain.StatusActive {
-		return fmt.Errorf("invalid transition from %s to %s", currentStatus, newStatus)
 	}
 
 	return nil
