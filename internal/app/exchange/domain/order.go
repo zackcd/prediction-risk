@@ -35,6 +35,7 @@ type Order struct {
 	OrderID         OrderID
 	ExchangeOrderID string
 	Exchange        Exchange
+	Reference       string
 	Ticker          string
 	Side            contract.Side
 	Action          OrderAction
@@ -45,22 +46,25 @@ type Order struct {
 }
 
 func NewOrder(
-	orderID OrderID,
 	exchangeOrderID string,
 	exchange Exchange,
+	reference string,
 	ticker string,
 	side contract.Side,
 	action OrderAction,
+	orderType MarketOrderType,
 	status string,
 ) *Order {
 	currentTime := time.Now()
 	return &Order{
+		OrderID:         NewOrderID(),
 		ExchangeOrderID: exchangeOrderID,
 		Exchange:        exchange,
+		Reference:       reference,
 		Ticker:          ticker,
 		Side:            side,
 		Action:          action,
-		OrderType:       OrderTypeMarket,
+		OrderType:       orderType,
 		Status:          status,
 		CreatedAt:       currentTime,
 		UpdatedAt:       currentTime,

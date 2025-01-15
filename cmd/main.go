@@ -55,7 +55,7 @@ func main() {
 	defer db.Close()
 
 	triggerRepo := trigger_repository.NewTriggerRepository(db)
-	_ = exchange_service.NewExchangeService(kalshiClient.Market, kalshiClient.Portfolio)
+	_ = exchange_service.NewExchangeService(kalshiClient)
 	triggerService := trigger_service.NewTriggerService(triggerRepo)
 	triggerMonitor := trigger_service.NewTriggerMonitor(triggerService, 5*time.Second, config.IsDryRun)
 
