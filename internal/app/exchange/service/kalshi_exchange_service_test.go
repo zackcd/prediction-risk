@@ -3,6 +3,7 @@ package exchange_service
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -31,6 +32,155 @@ func newTestService() (
 	}
 
 	return service, markets, positions, orders
+}
+
+func TestKalshiExchangeService_GetPositions(t *testing.T) {
+	t.Run("successfully retrieves multiple positions", func(t *testing.T) {
+		service, _, positions, _ := newTestService()
+
+		// Mock the positions response
+		positions.On("GetPositions", kalshi.GetPositionsOptions{}).Return(&kalshi.PositionsResult{
+			MarketPositions: []kalshi.MarketPosition{
+				{
+					Ticker:   "MARKET-1",
+					Position: 100, // YES position
+				},
+				{
+					Ticker:   "MARKET-2",
+					Position: -50, // NO position
+				},
+			},
+		}, nil)
+
+		// Execute test
+		result, err := service.GetPositions()
+
+		// Verify results
+		require.NoError(t, err)
+		require.Len(t, result, 2)
+
+		// Verify first position (YES side)
+		assert.Equal(t, contract.Ticker("MARKET-1"), result[0].ContractID.Ticker)
+		assert.Equal(t, contract.SideYes, result[0].ContractID.Side)
+		assert.Equal(t, uint(100), result[0].Quantity)
+
+		// Verify second position (NO side)
+		assert.Equal(t, contract.Ticker("MARKET-2"), result[1].ContractID.Ticker)
+		assert.Equal(t, contract.SideNo, result[1].ContractID.Side)
+		assert.Equal(t, uint(50), result[1].Quantity)
+
+		positions.AssertExpectations(t)
+	})
+
+	t.Run("handles empty positions list", func(t *testing.T) {
+		service, _, positions, _ := newTestService()
+
+		positions.On("GetPositions", kalshi.GetPositionsOptions{}).Return(&kalshi.PositionsResult{
+			MarketPositions: []kalshi.MarketPosition{},
+		}, nil)
+
+		result, err := service.GetPositions()
+
+		require.NoError(t, err)
+		assert.Empty(t, result)
+		positions.AssertExpectations(t)
+	})
+
+	t.Run("handles API error", func(t *testing.T) {
+		service, _, positions, _ := newTestService()
+
+		positions.On("GetPositions", kalshi.GetPositionsOptions{}).Return(nil, errors.New("API error"))
+
+		result, err := service.GetPositions()
+
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "fetch market from kalshi")
+		positions.AssertExpectations(t)
+	})
+}
+
+func TestKalshiExchangeService_GetMarket(t *testing.T) {
+	t.Run("successfully retrieves market details", func(t *testing.T) {
+		service, markets, _, _ := newTestService()
+
+		// Mock the market response
+		markets.On("GetMarket", "TEST-MARKET").Return(&kalshi.MarketResponse{
+			Market: kalshi.Market{
+				Ticker:         "TEST-MARKET",
+				Title:          "Test Market",
+				Category:       "TEST",
+				Status:         "active",
+				OpenTime:       time.Now(),
+				CloseTime:      time.Now().Add(24 * time.Hour),
+				ExpirationTime: time.Now().Add(48 * time.Hour),
+				YesBid:         60,
+				YesAsk:         65,
+				NoBid:          35,
+				NoAsk:          40,
+				LastPrice:      62,
+				PreviousYesBid: 58,
+				PreviousYesAsk: 63,
+				Volume:         1000,
+				Volume24H:      500,
+				OpenInterest:   750,
+				Liquidity:      1500,
+				NotionalValue:  100,
+				TickSize:       1,
+				RiskLimitCents: 10000,
+			},
+		}, nil)
+
+		// Execute test
+		result, err := service.GetMarket("TEST-MARKET")
+
+		// Verify results
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		// Verify basic market info
+		assert.Equal(t, contract.Ticker("TEST-MARKET"), result.Ticker)
+		assert.Equal(t, "Test Market", result.Info.Title)
+		assert.Equal(t, "TEST", result.Info.Category)
+		assert.Equal(t, exchange_domain.MarketTypeBinary, result.Info.Type)
+
+		// Verify YES side pricing
+		assert.Equal(t, contract.ContractPrice(60), result.Pricing.YesSide.Bid)
+		assert.Equal(t, contract.ContractPrice(65), result.Pricing.YesSide.Ask)
+		assert.Equal(t, contract.ContractPrice(62), result.Pricing.YesSide.LastPrice)
+		assert.Equal(t, contract.ContractPrice(58), result.Pricing.YesSide.PreviousBid)
+		assert.Equal(t, contract.ContractPrice(63), result.Pricing.YesSide.PreviousAsk)
+
+		// Verify NO side pricing (only current bid/ask)
+		assert.Equal(t, contract.ContractPrice(35), result.Pricing.NoSide.Bid)
+		assert.Equal(t, contract.ContractPrice(40), result.Pricing.NoSide.Ask)
+
+		// Verify trading constraints
+		assert.Equal(t, contract.ContractPrice(100), result.Constraints.NotionalValue)
+		assert.Equal(t, contract.ContractPrice(1), result.Constraints.TickSize)
+		assert.Equal(t, contract.ContractPrice(10000), result.Constraints.RiskLimit)
+
+		// Verify liquidity metrics
+		assert.Equal(t, 1000, result.Liquidity.Volume)
+		assert.Equal(t, 500, result.Liquidity.Volume24H)
+		assert.Equal(t, 750, result.Liquidity.OpenInterest)
+		assert.Equal(t, 1500, result.Liquidity.Liquidity)
+
+		markets.AssertExpectations(t)
+	})
+
+	t.Run("handles API error", func(t *testing.T) {
+		service, markets, _, _ := newTestService()
+
+		markets.On("GetMarket", "TEST-MARKET").Return(nil, errors.New("API error"))
+
+		result, err := service.GetMarket("TEST-MARKET")
+
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "fetch market from kalshi")
+		markets.AssertExpectations(t)
+	})
 }
 
 func TestKalshiExchangeService_CreateOrder(t *testing.T) {

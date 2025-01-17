@@ -1,3 +1,8 @@
 package exchange_domain
 
-type Position struct{}
+import "prediction-risk/internal/app/contract"
+
+type Position struct {
+	ContractID contract.ContractIdentifier
+	Quantity   uint
+}

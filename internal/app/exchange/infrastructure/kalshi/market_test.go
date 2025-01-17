@@ -35,7 +35,7 @@ func TestMarketClient(t *testing.T) {
 						Ticker:      "SHUTDOWNBY-24",
 						EventTicker: "SHUTDOWNBY-24",
 						Title:       "Government Shutdown",
-						Status:      "active",
+						Status:      "open",
 						YesBid:      60,
 						NoBid:       40,
 						MarketType:  "binary",
@@ -55,7 +55,7 @@ func TestMarketClient(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, result)
 			assert.Equal(t, "SHUTDOWNBY-24", result.Market.Ticker)
-			assert.Equal(t, "active", result.Market.Status)
+			assert.Equal(t, MarketStatusOpen, result.Market.Status)
 			assert.Equal(t, 60, result.Market.YesBid)
 		})
 
@@ -81,7 +81,7 @@ func TestMarketClient(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, "/trade-api/v2/markets", r.URL.Path)
 				assert.Equal(t, http.MethodGet, r.Method)
-				assert.Equal(t, "active", r.URL.Query().Get("status"))
+				assert.Equal(t, "open", r.URL.Query().Get("status"))
 				assert.Equal(t, "SERIES1", r.URL.Query().Get("series_ticker"))
 
 				callCount++
@@ -91,12 +91,12 @@ func TestMarketClient(t *testing.T) {
 							{
 								Ticker:      "MARKET1",
 								EventTicker: "EVENT1",
-								Status:      "active",
+								Status:      "open",
 							},
 							{
 								Ticker:      "MARKET2",
 								EventTicker: "EVENT1",
-								Status:      "active",
+								Status:      "open",
 							},
 						},
 						Cursor: stringPtr("next-page"),
@@ -108,7 +108,7 @@ func TestMarketClient(t *testing.T) {
 							{
 								Ticker:      "MARKET3",
 								EventTicker: "EVENT2",
-								Status:      "active",
+								Status:      "open",
 							},
 						},
 					}
@@ -122,7 +122,7 @@ func TestMarketClient(t *testing.T) {
 
 			now := time.Now()
 			options := NewGetMarketsOptions().
-				WithStatus([]string{"active"}).
+				WithStatus([]string{"open"}).
 				WithSeriesTicker("SERIES1").
 				WithMaxCloseTime(now.Add(24 * time.Hour))
 
@@ -139,7 +139,7 @@ func TestMarketClient(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, "MARKET1,MARKET2", r.URL.Query().Get("ticker"))
 				assert.Equal(t, "EVENT1", r.URL.Query().Get("event_ticker"))
-				assert.Equal(t, "active,settled", r.URL.Query().Get("status"))
+				assert.Equal(t, "open,settled", r.URL.Query().Get("status"))
 
 				response := MarketsResponse{
 					Markets: []Market{
@@ -157,7 +157,7 @@ func TestMarketClient(t *testing.T) {
 			options := NewGetMarketsOptions().
 				WithTickers([]string{"MARKET1", "MARKET2"}).
 				WithEventTicker("EVENT1").
-				WithStatus([]string{"active", "settled"})
+				WithStatus([]string{"open", "settled"})
 
 			result, err := client.GetMarkets(options)
 			assert.NoError(t, err)

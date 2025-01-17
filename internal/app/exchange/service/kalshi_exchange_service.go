@@ -36,13 +36,72 @@ func NewExchangeService(kalshiClient *kalshi.KalshiClient) *KalshiExchangeServic
 }
 
 func (es *KalshiExchangeService) GetMarket(ticker string) (*exchange_domain.Market, error) {
-	_, err := es.markets.GetMarket(ticker)
+	kalshiMarket, err := es.markets.GetMarket(ticker)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetch market from kalshi: %w", err)
 	}
 
-	// TODO: Implement market mapping
-	market := exchange_domain.Market{}
+	// Create the market info section, which contains the basic identifying information
+	marketInfo := exchange_domain.MarketInfo{
+		Title:    kalshiMarket.Market.Title,
+		Category: kalshiMarket.Market.Category,
+		Type:     exchange_domain.MarketTypeBinary, // Kalshi markets are always binary
+	}
+
+	// Map the market status, handling the various time fields and current state
+	marketStatus := exchange_domain.MarketStatus{
+		// State:              mapMarketState(kalshiMarket.Status),
+		OpenTime:           kalshiMarket.Market.OpenTime,
+		CloseTime:          kalshiMarket.Market.CloseTime,
+		ExpirationTime:     kalshiMarket.Market.ExpirationTime,
+		SettlementTime:     kalshiMarket.Market.SettlementTime,
+		Result:             kalshiMarket.Market.Result,
+		AllowsEarlyClosing: kalshiMarket.Market.CanCloseEarly,
+	}
+
+	// Create the pricing information for both sides of the market
+	marketPricing := exchange_domain.MarketPricing{
+		YesSide: exchange_domain.PricingSide{
+			Bid:         contract.ContractPrice(kalshiMarket.Market.YesBid),
+			Ask:         contract.ContractPrice(kalshiMarket.Market.YesAsk),
+			LastPrice:   contract.ContractPrice(kalshiMarket.Market.LastPrice),
+			PreviousBid: contract.ContractPrice(kalshiMarket.Market.PreviousYesBid),
+			PreviousAsk: contract.ContractPrice(kalshiMarket.Market.PreviousYesAsk),
+		},
+		NoSide: exchange_domain.PricingSide{
+			Bid: contract.ContractPrice(kalshiMarket.Market.NoBid),
+			Ask: contract.ContractPrice(kalshiMarket.Market.NoAsk),
+			// LastPrice:   kalshiMarket.LastPrice,
+			// PreviousBid: kalshiMarket.PreviousYesBid,
+			// PreviousAsk: kalshiMarket.PreviousYesAsk,
+		},
+	}
+
+	// Set up the trading constraints that define the rules for this market
+	tradingConstraints := exchange_domain.TradingConstraints{
+		NotionalValue: contract.ContractPrice(kalshiMarket.Market.NotionalValue),
+		TickSize:      contract.ContractPrice(kalshiMarket.Market.TickSize),
+		RiskLimit:     contract.ContractPrice(kalshiMarket.Market.RiskLimitCents),
+	}
+
+	// Map the liquidity metrics that indicate market activity
+	liquidityMetrics := exchange_domain.LiquidityMetrics{
+		Volume:       kalshiMarket.Market.Volume,
+		Volume24H:    kalshiMarket.Market.Volume24H,
+		OpenInterest: kalshiMarket.Market.OpenInterest,
+		Liquidity:    kalshiMarket.Market.Liquidity,
+	}
+
+	// Combine all components into our domain market model
+	market := exchange_domain.Market{
+		Ticker:      contract.Ticker(kalshiMarket.Market.Ticker),
+		Info:        marketInfo,
+		Status:      marketStatus,
+		Pricing:     marketPricing,
+		Constraints: tradingConstraints,
+		Liquidity:   liquidityMetrics,
+	}
+
 	return &market, nil
 }
 
@@ -50,12 +109,20 @@ func (es *KalshiExchangeService) GetPositions() ([]*exchange_domain.Position, er
 	params := kalshi.GetPositionsOptions{}
 	resp, err := es.positions.GetPositions(params)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetch market from kalshi: %w", err)
 	}
 
 	positions := lo.Map(resp.MarketPositions, func(p kalshi.MarketPosition, _ int) *exchange_domain.Position {
-		// TODO: Implement position mapping
-		return &exchange_domain.Position{}
+		side := es.determinePositionSide(p.Position)
+		contractID := contract.ContractIdentifier{
+			Ticker: contract.Ticker(p.Ticker),
+			Side:   side,
+		}
+
+		return &exchange_domain.Position{
+			ContractID: contractID,
+			Quantity:   uint(abs(p.Position)),
+		}
 	})
 
 	return positions, nil
@@ -159,6 +226,14 @@ func (es *KalshiExchangeService) createSellOrder(
 	)
 
 	return order, nil
+}
+
+// determinePositionSide converts a signed position quantity to a contract side
+func (es *KalshiExchangeService) determinePositionSide(position int) contract.Side {
+	if position >= 0 {
+		return contract.SideYes
+	}
+	return contract.SideNo
 }
 
 func (es *KalshiExchangeService) findPosition(ticker contract.Ticker) (*kalshi.MarketPosition, error) {

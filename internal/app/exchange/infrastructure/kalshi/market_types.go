@@ -50,29 +50,29 @@ func (o GetMarketsOptions) WithStatus(status []string) GetMarketsOptions {
 
 type Market struct {
 	// Market Information
-	Ticker             string  `json:"ticker"`
-	EventTicker        string  `json:"event_ticker"`
-	MultiMarketEventID *string `json:"multi_market_event_id,omitempty"`
-	Title              string  `json:"title"`
-	Subtitle           string  `json:"subtitle"`
-	YesSubTitle        string  `json:"yes_sub_title"`
-	NoSubTitle         string  `json:"no_sub_title"`
-	Description        *string `json:"description,omitempty"`
-	ImageURL           *string `json:"image_url,omitempty"`
-	Category           string  `json:"category"`
-	SubCategory        *string `json:"sub_category,omitempty"`
-	StrikePrice        *string `json:"strike_price,omitempty"`
-	MarketType         string  `json:"market_type"`
+	Ticker             string     `json:"ticker"`
+	EventTicker        string     `json:"event_ticker"`
+	MultiMarketEventID *string    `json:"multi_market_event_id,omitempty"`
+	Title              string     `json:"title"`
+	Subtitle           string     `json:"subtitle"`
+	YesSubTitle        string     `json:"yes_sub_title"`
+	NoSubTitle         string     `json:"no_sub_title"`
+	Description        *string    `json:"description,omitempty"`
+	ImageURL           *string    `json:"image_url,omitempty"`
+	Category           string     `json:"category"`
+	SubCategory        *string    `json:"sub_category,omitempty"`
+	StrikePrice        *string    `json:"strike_price,omitempty"`
+	MarketType         MarketType `json:"market_type"`
 
 	// Status & Timing
-	Status                 string    `json:"status"`
-	OpenTime               time.Time `json:"open_time"`
-	CloseTime              time.Time `json:"close_time"`
-	ExpirationTime         time.Time `json:"expiration_time"`
-	ExpectedExpirationTime time.Time `json:"expected_expiration_time"`
-	LatestExpirationTime   time.Time `json:"latest_expiration_time"`
-	SettlementTimerSeconds int       `json:"settlement_timer_seconds"`
-	CanCloseEarly          bool      `json:"can_close_early"`
+	Status                 MarketStatus `json:"status"`
+	OpenTime               time.Time    `json:"open_time"`
+	CloseTime              time.Time    `json:"close_time"`
+	ExpirationTime         time.Time    `json:"expiration_time"`
+	ExpectedExpirationTime time.Time    `json:"expected_expiration_time"`
+	LatestExpirationTime   time.Time    `json:"latest_expiration_time"`
+	SettlementTimerSeconds int          `json:"settlement_timer_seconds"`
+	CanCloseEarly          bool         `json:"can_close_early"`
 
 	// Settlement Information
 	Result            *string    `json:"result,omitempty"`
@@ -123,3 +123,19 @@ type MarketsResponse struct {
 type MarketsResult struct {
 	Markets []Market
 }
+
+type MarketType string
+
+const (
+	MarketTypeBinary MarketType = "binary"
+	MarketTypeScalar MarketType = "scalar"
+)
+
+type MarketStatus string
+
+const (
+	MarketStatusUnopened MarketStatus = "unopened"
+	MarketStatusOpen     MarketStatus = "open"
+	MarketStatusClosed   MarketStatus = "closed"
+	MarketStatusSettled  MarketStatus = "settled"
+)
