@@ -16,6 +16,6 @@ type OrderParams struct {
 
 type ExchangeService interface {
 	GetMarket(ticker contract.Ticker) (*exchange_domain.Market, error)
-	GetPositions() (*exchange_domain.Position, error)
+	GetPositions() ([]*exchange_domain.Position, error)
 	CreateOrder(orderParams OrderParams) (*exchange_domain.Order, error)
 }

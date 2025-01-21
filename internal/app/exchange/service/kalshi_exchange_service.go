@@ -35,8 +35,8 @@ func NewExchangeService(kalshiClient *kalshi.KalshiClient) *KalshiExchangeServic
 	}
 }
 
-func (es *KalshiExchangeService) GetMarket(ticker string) (*exchange_domain.Market, error) {
-	kalshiMarket, err := es.markets.GetMarket(ticker)
+func (es *KalshiExchangeService) GetMarket(ticker contract.Ticker) (*exchange_domain.Market, error) {
+	kalshiMarket, err := es.markets.GetMarket(string(ticker))
 	if err != nil {
 		return nil, fmt.Errorf("fetch market from kalshi: %w", err)
 	}
