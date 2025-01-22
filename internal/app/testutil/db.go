@@ -123,6 +123,22 @@ func (tdb *TestDB) Close(t *testing.T) {
 	require.NoError(t, tdb.container.Terminate(ctx))
 }
 
+func (tdb *TestDB) InsertTestData(t *testing.T) {
+	queries := []string{
+		`INSERT INTO weather.nws_station (station_id, name)
+		VALUES ('KNYC', 'New York City, Central Park')
+		ON CONFLICT (station_ID) DO NOTHING;`,
+		`INSERT INTO weather.nws_station (station_id, name)
+		VALUES ('047740', 'San Diego Lindbe, CA')
+		ON CONFLICT (station_ID) DO NOTHING;`,
+	}
+
+	for _, query := range queries {
+		_, err := tdb.db.Exec(query)
+		require.NoError(t, err)
+	}
+}
+
 // Cleanup truncates all project-related tables in the database
 func (tdb *TestDB) Cleanup(t *testing.T) {
 	query := `

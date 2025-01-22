@@ -4,46 +4,43 @@ import (
 	"fmt"
 	weather_domain "prediction-risk/internal/app/weather/domain"
 	"prediction-risk/internal/app/weather/infrastructure/nws"
+	weather_repository "prediction-risk/internal/app/weather/repository"
 	"time"
 
 	"github.com/samber/lo"
 )
 
-type TemperatureObservationRepo interface {
-	Get(filter *weather_domain.TemperatureObservationFilter) ([]*weather_domain.TemperatureObservation, error)
-	GetLatestByStation(stationID weather_domain.StationID) (*weather_domain.TemperatureObservation, error)
-	Persist(observation *weather_domain.TemperatureObservation) error
+type WeatherObservationService interface {
+	RetrieveLatestObservation(stationID string) (*weather_domain.TemperatureObservation, error)
+	RetrieveObservationsInRange(stationID string, startTime time.Time, endTime time.Time) ([]*weather_domain.TemperatureObservation, *weather_domain.RetrievalStats, error)
+	GetLatestTemperature(stationID string) (*weather_domain.TemperatureObservation, error)
 }
 
-type WeatherObservationService interface{}
-
-type RetrievalStats struct {
-	TotalObservations     int
-	MissingTemperature    int
-	StoredObservations    int
-	ObservationsWithError []time.Time
+type ObservationGetter interface {
+	GetLatestObservations(stationID string) (*nws.Observation, error)
+	GetObservations(stationID string, params nws.ObservationQueryParams) (*nws.ObservationCollection, error)
 }
 
 type weatherObservationService struct {
-	temperatureObservationRepo TemperatureObservationRepo
-	nwsClient                  *nws.NWSClient
+	temperatureObservationRepo weather_repository.TemperatureObservationRepo
+	observationGetter          ObservationGetter
 }
 
 func NewWeatherObservationService(
-	temperatureObservationRepo TemperatureObservationRepo,
+	temperatureObservationRepo weather_repository.TemperatureObservationRepo,
 	nwsClient *nws.NWSClient,
 ) *weatherObservationService {
 	return &weatherObservationService{
 		temperatureObservationRepo: temperatureObservationRepo,
-		nwsClient:                  nwsClient,
+		observationGetter:          nwsClient.Station,
 	}
 }
 
 // RetrieveLatestObservation gets and stores the latest observation for a station
 func (s *weatherObservationService) RetrieveLatestObservation(
-	stationID weather_domain.StationID,
+	stationID string,
 ) (*weather_domain.TemperatureObservation, error) {
-	observation, err := s.nwsClient.Station.GetLatestObservations(stationID.String())
+	observation, err := s.observationGetter.GetLatestObservations(stationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve latest observations from NWS: %w", err)
 	}
@@ -72,21 +69,21 @@ func (s *weatherObservationService) RetrieveLatestObservation(
 
 // RetrieveObservationsInRange gets and stores observations within a specific time range
 func (s *weatherObservationService) RetrieveObservationsInRange(
-	stationID weather_domain.StationID,
+	stationID string,
 	startTime time.Time,
 	endTime time.Time,
-) ([]*weather_domain.TemperatureObservation, *RetrievalStats, error) {
+) ([]*weather_domain.TemperatureObservation, *weather_domain.RetrievalStats, error) {
 	params := nws.ObservationQueryParams{
 		Start: &startTime,
 		End:   &endTime,
 	}
 
-	observations, err := s.nwsClient.Station.GetObservations(stationID.String(), params)
+	observations, err := s.observationGetter.GetObservations(stationID, params)
 	if err != nil {
 		return nil, nil, fmt.Errorf("fetching observations from NWS: %w", err)
 	}
 
-	stats := &RetrievalStats{
+	stats := &weather_domain.RetrievalStats{
 		TotalObservations: len(observations.Features),
 	}
 
@@ -133,7 +130,23 @@ func (s *weatherObservationService) RetrieveObservationsInRange(
 
 // GetLatestTemperature retrieves the most recent stored observation for a station
 func (s *weatherObservationService) GetLatestTemperature(
-	stationID weather_domain.StationID,
+	stationID string,
 ) (*weather_domain.TemperatureObservation, error) {
-	return s.temperatureObservationRepo.GetLatestByStation(stationID)
+	filter := &weather_domain.TemperatureObservationFilter{
+		StationID: &stationID,
+	}
+	observations, err := s.temperatureObservationRepo.Get(filter)
+	if err != nil {
+		return nil, fmt.Errorf("fetching temperature observations: %w", err)
+	}
+
+	if len(observations) == 0 {
+		return nil, fmt.Errorf("no temperature observations found for station %s", stationID)
+	}
+
+	latest := lo.MaxBy(observations, func(a *weather_domain.TemperatureObservation, b *weather_domain.TemperatureObservation) bool {
+		return a.Timestamp.After(b.Timestamp)
+	})
+
+	return latest, nil
 }

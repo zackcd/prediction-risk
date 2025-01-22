@@ -25,14 +25,6 @@ func (m *MockTemperatureObservationRepo) Get(filter *weather_domain.TemperatureO
 	return args.Get(0).([]*weather_domain.TemperatureObservation), args.Error(1)
 }
 
-func (m *MockTemperatureObservationRepo) GetLatestByStation(stationID weather_domain.StationID) (*weather_domain.TemperatureObservation, error) {
-	args := m.Called(stationID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*weather_domain.TemperatureObservation), args.Error(1)
-}
-
 func (m *MockTemperatureObservationRepo) Persist(observation *weather_domain.TemperatureObservation) error {
 	args := m.Called(observation)
 	return args.Error(0)

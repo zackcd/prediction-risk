@@ -30,7 +30,7 @@ type Temperature struct {
 
 type TemperatureObservation struct {
 	ObservationID ObservationID
-	StationID     StationID
+	StationID     string
 	Temperature   Temperature
 	Timestamp     time.Time
 	CreatedAt     time.Time
@@ -38,7 +38,7 @@ type TemperatureObservation struct {
 }
 
 func NewTemperatureObservation(
-	stationID StationID,
+	stationID string,
 	temperature Temperature,
 	timestamp time.Time,
 ) *TemperatureObservation {
@@ -53,4 +53,6 @@ func NewTemperatureObservation(
 	}
 }
 
-type TemperatureObservationFilter struct{}
+type TemperatureObservationFilter struct {
+	StationID *string
+}
