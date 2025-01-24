@@ -91,26 +91,56 @@ func (r *temperatureObservationRepo) Get(filter *weather_domain.TemperatureObser
 }
 
 func (r *temperatureObservationRepo) Persist(observation *weather_domain.TemperatureObservation) error {
-	query := `
-		INSERT INTO weather.temperature_observation (
-			observation_id,
-			station_id,
-			temperature,
-			temperature_unit,
-			timestamp,
-			created_at,
-			updated_at
-		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7
-		)
-		ON CONFLICT (observation_id) DO UPDATE
-		SET
-			temperature = EXCLUDED.temperature,
-			temperature_unit = EXCLUDED.temperature_unit,
-			updated_at = EXCLUDED.updated_at
-	`
+	// First try to get by observation_id
+	var existing dbTemperatureObservation
+	getQuery := `
+        SELECT observation_id, station_id, temperature, temperature_unit, timestamp, created_at, updated_at
+        FROM weather.temperature_observation
+        WHERE observation_id = $1
+    `
+	err := r.db.Get(&existing, getQuery, observation.ObservationID.String())
 
-	_, err := r.db.Exec(query,
+	if err == nil {
+		// If found, update the existing record
+		updateQuery := `
+            UPDATE weather.temperature_observation
+            SET
+                temperature = $1,
+                temperature_unit = $2,
+                updated_at = $3
+            WHERE observation_id = $4
+        `
+		_, err = r.db.Exec(updateQuery,
+			observation.Temperature.Value,
+			observation.Temperature.TemperatureUnit,
+			observation.UpdatedAt,
+			observation.ObservationID.String(),
+		)
+		if err != nil {
+			return fmt.Errorf("error updating temperature observation: %w", err)
+		}
+		return nil
+	}
+
+	// If not found by ID, try insert with station/timestamp conflict handling
+	insertQuery := `
+        INSERT INTO weather.temperature_observation (
+            observation_id,
+            station_id,
+            temperature,
+            temperature_unit,
+            timestamp,
+            created_at,
+            updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT ON CONSTRAINT unique_station_timestamp DO UPDATE
+        SET
+            temperature = EXCLUDED.temperature,
+            temperature_unit = EXCLUDED.temperature_unit,
+            updated_at = EXCLUDED.updated_at
+    `
+
+	_, err = r.db.Exec(insertQuery,
 		observation.ObservationID.String(),
 		observation.StationID,
 		observation.Temperature.Value,

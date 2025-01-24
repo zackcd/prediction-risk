@@ -117,6 +117,52 @@ func TestTemperatureObservationRepo_Persist(t *testing.T) {
 		assert.Equal(t, 24.5, saved[0].Temperature.Value)
 		assert.Equal(t, 23.5, saved[1].Temperature.Value)
 	})
+
+	t.Run("updates observation with same station and timestamp", func(t *testing.T) {
+		testDB.InsertTestData(t)
+		defer testDB.Cleanup(t)
+
+		stationID := "KNYC"
+		timestamp := time.Now().UTC()
+
+		// Create first observation
+		obs1 := weather_domain.NewTemperatureObservation(
+			stationID,
+			weather_domain.Temperature{
+				Value:           23.5,
+				TemperatureUnit: weather_domain.Celsius,
+			},
+			timestamp,
+		)
+		err := repo.Persist(obs1)
+		require.NoError(t, err)
+
+		// Create second observation with same station and timestamp but different ID and temperature
+		obs2 := weather_domain.NewTemperatureObservation(
+			stationID,
+			weather_domain.Temperature{
+				Value:           24.5,
+				TemperatureUnit: weather_domain.Celsius,
+			},
+			timestamp,
+		)
+		err = repo.Persist(obs2)
+		require.NoError(t, err)
+
+		// Verify only one observation exists and has the new values
+		filter := &weather_domain.TemperatureObservationFilter{
+			StationID: &stationID,
+		}
+
+		saved, err := repo.Get(filter)
+		require.NoError(t, err)
+		require.Len(t, saved, 1)
+
+		assert.Equal(t, obs1.ObservationID, saved[0].ObservationID)               // Should have new observation ID
+		assert.Equal(t, 24.5, saved[0].Temperature.Value)                         // Should have new temperature
+		assert.WithinDuration(t, timestamp, saved[0].Timestamp, time.Microsecond) // Use WithinDuration instead of direct comparison
+		assert.True(t, saved[0].UpdatedAt.After(saved[0].CreatedAt))
+	})
 }
 
 func TestTemperatureObservationRepo_Get(t *testing.T) {

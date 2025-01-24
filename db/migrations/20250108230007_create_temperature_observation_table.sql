@@ -13,11 +13,6 @@ INSERT INTO
 VALUES
     ('KNYC', 'New York City, Central Park');
 
-INSERT INTO
-    weather.nws_station (station_id, name)
-VALUES
-    ('047740', 'San Diego Lindbe, CA');
-
 CREATE TYPE weather.temperature_unit AS ENUM ('CELSIUS', 'FAHRENHEIT');
 
 CREATE TABLE weather.temperature_observation (

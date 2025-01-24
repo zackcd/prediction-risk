@@ -30,6 +30,33 @@ func NewWeatherMonitor(
 func (m *WeatherMonitor) Start() {
 	log.Printf("Starting WeatherMonitor for station: %v", m.stationID)
 
+	// First get any missed observations from the last 24 hours
+	startTime := time.Now().UTC().Add(-24 * time.Hour)
+	endTime := time.Now().UTC()
+
+	observations, stats, err := m.weatherObservationService.RetrieveObservationsInRange(
+		m.stationID,
+		startTime,
+		endTime,
+	)
+	if err != nil {
+		log.Printf("Error retrieving historical observations: %v", err)
+	} else {
+		log.Printf("Retrieved %d historical observations (stored: %d, missing temp: %d, errors: %d)",
+			stats.TotalObservations,
+			stats.StoredObservations,
+			stats.MissingTemperature,
+			len(stats.ObservationsWithError),
+		)
+
+		// Process historical observations
+		for _, observation := range observations {
+			if _, err := m.processWeatherObservation(observation); err != nil {
+				log.Printf("Error processing historical observation: %v", err)
+			}
+		}
+	}
+
 	go func() {
 		ticker := time.NewTicker(m.interval)
 		defer ticker.Stop()

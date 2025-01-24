@@ -1,12 +1,14 @@
 package weather_service
 
 import (
+	"fmt"
 	weather_domain "prediction-risk/internal/app/weather/domain"
 	weather_mocks "prediction-risk/internal/app/weather/mocks"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,6 +30,20 @@ func TestWeatherMonitor_Start(t *testing.T) {
 		interval := 100 * time.Millisecond
 
 		observation := createTestObservation(stationID)
+
+		// Mock RetrieveObservationsInRange for startup historical data
+		mockService.On("RetrieveObservationsInRange",
+			stationID,
+			mock.AnythingOfType("time.Time"),
+			mock.AnythingOfType("time.Time"),
+		).Return(
+			[]*weather_domain.TemperatureObservation{observation},
+			&weather_domain.RetrievalStats{
+				TotalObservations:  1,
+				StoredObservations: 1,
+			},
+			nil,
+		).Once()
 
 		// Expect at least two calls to RetrieveLatestObservation
 		mockService.On("RetrieveLatestObservation", stationID).
@@ -60,6 +76,17 @@ func TestWeatherMonitor_Start(t *testing.T) {
 		stationID := "KNYC"
 		interval := 100 * time.Millisecond
 
+		// Mock RetrieveObservationsInRange to return error
+		mockService.On("RetrieveObservationsInRange",
+			stationID,
+			mock.AnythingOfType("time.Time"),
+			mock.AnythingOfType("time.Time"),
+		).Return(
+			[]*weather_domain.TemperatureObservation(nil),
+			(*weather_domain.RetrievalStats)(nil),
+			fmt.Errorf("failed to retrieve historical data"),
+		).Once()
+
 		// Mock service to return error
 		mockService.On("RetrieveLatestObservation", stationID).
 			Return(nil, assert.AnError).
@@ -85,6 +112,17 @@ func TestWeatherMonitor_Stop(t *testing.T) {
 		mockService := &weather_mocks.MockWeatherObservationService{}
 		stationID := "KNYC"
 		interval := 100 * time.Millisecond
+
+		// Mock RetrieveObservationsInRange for startup historical data
+		mockService.On("RetrieveObservationsInRange",
+			stationID,
+			mock.AnythingOfType("time.Time"),
+			mock.AnythingOfType("time.Time"),
+		).Return(
+			[]*weather_domain.TemperatureObservation{},
+			&weather_domain.RetrievalStats{},
+			nil,
+		).Times(2)
 
 		observation := createTestObservation(stationID)
 		mockService.On("RetrieveLatestObservation", stationID).

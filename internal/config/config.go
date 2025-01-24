@@ -21,6 +21,10 @@ type Config struct {
 		Port     int
 		Host     string
 	}
+	NWS struct {
+		BaseURL   string
+		UserAgent string
+	}
 }
 
 func LoadConfig() (*Config, error) {
@@ -41,6 +45,8 @@ func LoadConfig() (*Config, error) {
 	viper.BindEnv("Databases.Name", "DB_NAME")
 	viper.BindEnv("Databases.Port", "DB_PORT")
 	viper.BindEnv("Databases.Host", "DB_HOST")
+	viper.BindEnv("NWS.BaseURL", "NWS_BASE_URL")
+	viper.BindEnv("NWS.UserAgent", "NWS_USER_AGENT")
 
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {

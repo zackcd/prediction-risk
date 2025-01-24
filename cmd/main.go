@@ -11,6 +11,9 @@ import (
 	exchange_service "prediction-risk/internal/app/exchange/service"
 	trigger_repository "prediction-risk/internal/app/risk/trigger/repository"
 	trigger_service "prediction-risk/internal/app/risk/trigger/service"
+	"prediction-risk/internal/app/weather/infrastructure/nws"
+	weather_repository "prediction-risk/internal/app/weather/repository"
+	weather_service "prediction-risk/internal/app/weather/service"
 	"prediction-risk/internal/config"
 	"prediction-risk/internal/interfaces/api"
 	"time"
@@ -40,6 +43,11 @@ func main() {
 		kalshiPrivateKey,
 	)
 
+	nwsClient := nws.NewNWSClient(
+		config.NWS.BaseURL,
+		config.NWS.UserAgent,
+	)
+
 	dsn := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		"postgres",
@@ -60,11 +68,22 @@ func main() {
 	triggerExecutor := trigger_service.NewTriggerExecutor(triggerService, exchangeService)
 	triggerMonitor := trigger_service.NewTriggerMonitor(triggerService, triggerExecutor, exchangeService, 5*time.Second, config.IsDryRun)
 
+	// Weather services
+	weatherObservationRepo := weather_repository.NewTemperatureObservationRepo(db)
+	weatherObservationService := weather_service.NewWeatherObservationService(weatherObservationRepo, nwsClient)
+	weather_monitor := weather_service.NewWeatherMonitor("KNYC", weatherObservationService, 5*time.Second)
+
 	// Run monitors
-	monitors := []Monitor{triggerMonitor}
+	monitors := []Monitor{triggerMonitor, weather_monitor}
 	for _, m := range monitors {
-		RunMonitor(m)
+		m.Start()
 	}
+
+	defer func() {
+		for _, m := range monitors {
+			m.Stop()
+		}
+	}()
 
 	// Setup router
 	router := chi.NewRouter()
@@ -99,4 +118,9 @@ func parsePrivateKey(pemEncodedKey string) (*rsa.PrivateKey, error) {
 	}
 
 	return privateKey, nil
+}
+
+type Monitor interface {
+	Start()
+	Stop()
 }
